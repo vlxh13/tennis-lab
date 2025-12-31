@@ -2085,6 +2085,10 @@
                 } else if (atpLoaded || wtaLoaded) {
                     showToast('Donnees partiellement chargees', 'info');
                 }
+
+                // Initialiser le selecteur d'annees du simulateur
+                if (typeof initYearSelector === 'function') initYearSelector();
+                if (typeof updateSimNichesSummary === 'function') updateSimNichesSummary();
             } catch (err) {
                 console.log('[PWA] Erreur chargement:', err.message);
                 // Pas de toast d'erreur - l'utilisateur peut charger manuellement
