@@ -75,7 +75,46 @@
         .main-content.active{display:block}
         .grid{display:grid;grid-template-columns:320px 1fr;gap:1.25rem;max-width:100%;overflow:hidden}
         @media(max-width:900px){.grid{grid-template-columns:1fr}}
-        
+
+        /* ========== MOBILE RESPONSIVE ========== */
+        @media(max-width:600px){
+            body{font-size:14px}
+            .header{flex-wrap:wrap;padding:.75rem;gap:.5rem}
+            .header h1{font-size:1.1rem;width:100%;text-align:center}
+            .main-tabs{width:100%;justify-content:center;flex-wrap:wrap;margin:0}
+            .main-tab{padding:.4rem .6rem;font-size:.75rem}
+            .header-bankroll{width:100%;text-align:center;margin:0}
+            .header-bankroll .value{font-size:1.2rem}
+            .main-content{padding:.75rem}
+            .circuit-tabs{padding:.5rem;gap:.4rem;flex-wrap:wrap;justify-content:center}
+            .circuit-tab{padding:.5rem 1rem;font-size:.85rem}
+            .card{padding:.75rem}
+            .card-title{font-size:.8rem}
+            .form-row{grid-template-columns:1fr}
+            .stats{grid-template-columns:repeat(3,1fr);gap:.5rem}
+            .stat{padding:.5rem}
+            .stat .val{font-size:1rem}
+            .stat .lbl{font-size:.6rem}
+            .btn{padding:.6rem 1rem;font-size:.85rem}
+            .niches{max-height:200px}
+            .niche{padding:.5rem;font-size:.8rem}
+            table{font-size:.75rem}
+            th,td{padding:.4rem}
+            .bet-card{padding:.6rem}
+            .bet-player{font-size:.9rem}
+            .bet-odds{font-size:1rem}
+            .years{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}
+            .tabs{flex-wrap:wrap}
+            .tab{padding:.4rem .6rem;font-size:.75rem}
+            .chart-box{height:180px}
+            .streak-box{flex-direction:column;gap:.5rem}
+            .quick-check{padding:.75rem}
+            #simYearSelector{gap:.2rem}
+            #simYearSelector button{padding:.3rem .4rem;font-size:.6rem}
+            .sim-top-grid{grid-template-columns:1fr!important;gap:.75rem!important}
+            .sim-stats-grid{grid-template-columns:1fr!important;gap:.5rem!important}
+        }
+
         .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem;overflow:hidden}
         .card-title{font-size:.9rem;font-weight:600;margin-bottom:.75rem;color:var(--muted);text-transform:uppercase}
         .card.atp-border{border-left:4px solid var(--atp)}
@@ -938,7 +977,7 @@
         <div class="card" style="background:linear-gradient(135deg, var(--card) 0%, rgba(168,85,247,0.1) 100%)">
             <div class="card-title">🎰 Simulateur de Stratégies de Mise</div>
             
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;margin-bottom:1rem">
+            <div class="sim-top-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;margin-bottom:1rem">
                 <!-- Niches actives -->
                 <div>
                     <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:.3rem">📊 Niches actives</label>
@@ -958,7 +997,7 @@
             </div>
             
             <!-- Stratégies de mise - lecture seule depuis Config -->
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
+            <div class="sim-stats-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem">
                 <div style="background:var(--bg);border-radius:8px;padding:.75rem;border-left:3px solid var(--green)">
                     <div style="font-size:.75rem;color:var(--muted);margin-bottom:.25rem">💰 Bankroll</div>
                     <div id="simDisplayBankroll" style="font-size:1.1rem;font-weight:700;color:var(--green)">5000€</div>
