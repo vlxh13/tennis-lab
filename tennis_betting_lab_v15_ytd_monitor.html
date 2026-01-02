@@ -1799,6 +1799,39 @@
             alert('✅ Niches réinitialisées aux valeurs par défaut');
         }
 
+        // ==================== ROUNDS ACTIFS PAR CATEGORIE (2024-2025) ====================
+        // Utilisé pour détecter les niches basées sur des tournois morts
+        const ROUNDS_ACTIFS = {
+            // ATP
+            'Grand Slam': ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+            'Masters 1000': ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+            'ATP 500': ['R32', 'R16', 'QF', 'SF', 'F'],  // Certains ont R64 mais rare
+            'ATP 250': ['R32', 'R16', 'QF', 'SF', 'F'],  // Seul Winston-Salem a R64
+            // WTA
+            'WTA 1000': ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+            'WTA 500': ['R32', 'R16', 'QF', 'SF', 'F'],  // Brisbane a R64 mais c'est rare
+            'WTA 250': ['R32', 'R16', 'QF', 'SF', 'F'],  // AUCUN tournoi actif n'a R64
+        };
+
+        // Exceptions: tournois spécifiques qui ont des rounds inhabituels
+        const ROUNDS_EXCEPTIONS = {
+            'ATP 250|Hard|R64': ['Winston-Salem'],  // Seul ATP 250 avec R64
+            'WTA 500|Hard|R64': ['Brisbane'],       // Seul WTA 500 avec R64 régulier
+        };
+
+        // Fonction pour vérifier si une combinaison cat/round est active
+        function isRoundActiveForCategory(cat, round) {
+            var validRounds = ROUNDS_ACTIFS[cat];
+            if (!validRounds) return true; // Catégorie inconnue, on assume actif
+            return validRounds.indexOf(round) >= 0;
+        }
+
+        // Fonction pour obtenir les tournois qui supportent une combinaison
+        function getTournamentsForCombo(cat, surf, round) {
+            var key = cat + '|' + surf + '|' + round;
+            return ROUNDS_EXCEPTIONS[key] || [];
+        }
+
         // ==================== TOURNAMENTS ====================
         const TOURNAMENTS_ATP = [
             // Grand Slams
@@ -13700,7 +13733,30 @@
                         
                         // Calculer le score composite avec données annuelles
                         var scoreData = calcCompositeScore(rFull, r3, r5, rFull.yearlyData, totalCombos);
-                        
+
+                        // === VERIFIER SI LES ROUNDS SONT ACTIFS ===
+                        var inactiveRounds = [];
+                        for (var ri = 0; ri < c.rnds.length; ri++) {
+                            var rnd = c.rnds[ri];
+                            if (!isRoundActiveForCategory(c.cat, rnd)) {
+                                inactiveRounds.push(rnd);
+                            }
+                        }
+
+                        if (inactiveRounds.length > 0) {
+                            // Vérifier s'il y a des exceptions (tournois spécifiques)
+                            var exceptions = getTournamentsForCombo(c.cat, c.surf, inactiveRounds[0]);
+                            if (exceptions.length > 0) {
+                                scoreData.warnings.push('⚠️ Round ' + inactiveRounds.join('+') + ' rare pour ' + c.cat + ' — Seul(s): ' + exceptions.join(', '));
+                            } else {
+                                scoreData.warnings.push('🚫 NICHE MORTE — Aucun tournoi ' + c.cat + ' actuel n\'a de ' + inactiveRounds.join('+'));
+                                // Pénaliser le score pour les niches mortes
+                                scoreData.score = Math.max(0, scoreData.score - 30);
+                                if (scoreData.verdict === 'fiable') scoreData.verdict = 'surveiller';
+                                if (scoreData.verdict === 'surveiller') scoreData.verdictReason = 'Niche basée sur tournois inactifs';
+                            }
+                        }
+
                         results.push({
                             circuit: c.circuit,
                             cat: c.cat,
