@@ -15260,15 +15260,16 @@
 
         // Backtester une niche sur les donnees
         function backtestNicheForPortfolio(niche, data, yearStart, yearEnd) {
+            if (!data || data.length === 0) return null;
+
             var filtered = data.filter(function(m) { return m.year >= yearStart && m.year <= yearEnd; });
             var wins = 0, losses = 0, profit = 0;
             var bets = [];
 
             for (var i = 0; i < filtered.length; i++) {
                 var m = filtered[i];
-                var catMatch = m.category.toLowerCase().replace(/\s+/g, '').indexOf(niche.cat.toLowerCase().replace(/\s+/g, '')) !== -1 ||
-                               m.category === niche.cat;
-                if (!catMatch) continue;
+                // Matching exact comme dans processBacktestForCircuit
+                if (m.category !== niche.cat) continue;
                 if (m.surface !== niche.surf) continue;
                 if (niche.rounds.indexOf(m.round) === -1) continue;
 
@@ -15314,24 +15315,30 @@
 
         // Generer les 3 portfolios
         async function buildPortfolios() {
-            var targetPicks = parseInt(document.getElementById('pfTargetSlider').value);
+            try {
+                console.log('[Portfolio] Demarrage...');
+                console.log('[Portfolio] Circuit:', pfCircuit);
+                console.log('[Portfolio] ATP data:', btDataATP ? btDataATP.length : 'null');
+                console.log('[Portfolio] WTA data:', btDataWTA ? btDataWTA.length : 'null');
 
-            // Verifier que les donnees sont chargees
-            if ((pfCircuit === 'atp' || pfCircuit === 'both') && (!btDataATP || btDataATP.length === 0)) {
-                showToast('Donnees ATP non chargees', 'error');
-                return;
-            }
-            if ((pfCircuit === 'wta' || pfCircuit === 'both') && (!btDataWTA || btDataWTA.length === 0)) {
-                showToast('Donnees WTA non chargees', 'error');
-                return;
-            }
+                var targetPicks = parseInt(document.getElementById('pfTargetSlider').value);
 
-            // Afficher le loading
-            document.getElementById('pfLoading').style.display = 'block';
-            document.getElementById('pfResults').style.display = 'none';
+                // Verifier que les donnees sont chargees
+                if ((pfCircuit === 'atp' || pfCircuit === 'both') && (!btDataATP || btDataATP.length === 0)) {
+                    showToast('Donnees ATP non chargees - Va dans Backtest et charge les donnees', 'error');
+                    return;
+                }
+                if ((pfCircuit === 'wta' || pfCircuit === 'both') && (!btDataWTA || btDataWTA.length === 0)) {
+                    showToast('Donnees WTA non chargees - Va dans Backtest et charge les donnees', 'error');
+                    return;
+                }
 
-            // Donner un court delai pour l'UI
-            await new Promise(function(r) { setTimeout(r, 50); });
+                // Afficher le loading
+                document.getElementById('pfLoading').style.display = 'block';
+                document.getElementById('pfResults').style.display = 'none';
+
+                // Donner un court delai pour l'UI
+                await new Promise(function(r) { setTimeout(r, 50); });
 
             var yearStart = 2020, yearEnd = 2025;
             var yearsCount = yearEnd - yearStart + 1;
@@ -15467,6 +15474,13 @@
 
             document.getElementById('pfComparison').innerHTML = compHtml;
             showToast('Portfolios generes avec succes', 'success');
+            console.log('[Portfolio] Termine avec succes');
+
+            } catch (err) {
+                console.error('[Portfolio] Erreur:', err);
+                document.getElementById('pfLoading').style.display = 'none';
+                showToast('Erreur: ' + err.message, 'error');
+            }
         }
 
         init();
