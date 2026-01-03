@@ -15472,6 +15472,9 @@
                     var testBets = rTest ? rTest.bets : 0;
                     var roi3 = r3 ? r3.roi : 0;
 
+                    // Calculer le profit a partir du ROI (profit = roi * bets / 100)
+                    var profit = rFull.roi * rFull.bets / 100;
+
                     // Calculer le score comme dans le Detecteur
                     var scoreData = null;
                     if (rFull.bets >= 10) {
@@ -15486,7 +15489,7 @@
                         wins: rFull.wins,
                         winrate: (rFull.wins / rFull.bets) * 100,
                         roi: rFull.roi,
-                        profit: rFull.profit,
+                        profit: profit,
                         trainROI: trainROI,
                         testROI: testROI,
                         trainBets: trainBets,
