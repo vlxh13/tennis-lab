@@ -15567,48 +15567,68 @@
             // Compter les niches validees (train/test positif)
             var validatedNiches = nicheResults.filter(function(n) { return n.isValidated; });
 
-            // Afficher le resume
-            var summaryHtml = '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(34,197,94,0.1);border-radius:6px;font-size:.75rem">';
-            summaryHtml += '<strong>Source:</strong> Tes niches ajoutees via le Detecteur. Calculs identiques au Detecteur (testComboV2).';
-            summaryHtml += '</div>';
-            summaryHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-bottom:.5rem">';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Niches ajoutees</div><div style="font-weight:700">' + totalNiches + '</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Avec 30+ paris</div><div style="font-weight:700">' + nicheResults.length + '</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Train+Test OK</div><div style="font-weight:700;color:var(--green)">' + validatedNiches.length + '</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Volume MAX</div><div style="font-weight:700;color:var(--blue)">' + maxBetsPerMonth.toFixed(1) + ' picks/mois</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">ROI combine</div><div style="font-weight:700;color:' + (maxCombinedRoi >= 10 ? 'var(--green)' : 'var(--yellow)') + '">+' + maxCombinedRoi.toFixed(1) + '%</div></div>';
-            summaryHtml += '</div>';
+            // ======== TRIER ET CALCULER LA STRATEGIE RECOMMANDEE ========
+            nicheResults.sort(function(a, b) { return b.score - a.score; });
 
-            // Info si peu de niches
-            if (totalNiches < 10) {
-                summaryHtml += '<div style="background:rgba(59,130,246,0.15);border:1px solid var(--blue);padding:.5rem;border-radius:6px;font-size:.75rem;margin-bottom:.5rem">';
-                summaryHtml += '<strong style="color:var(--blue)">💡 Conseil:</strong> Tu n\'as que ' + totalNiches + ' niches. Va dans le Detecteur pour en ajouter davantage et augmenter le volume disponible.';
-                summaryHtml += '</div>';
+            // Calculer ou tombe la cible
+            var cumBets = 0;
+            var cumProfit = 0;
+            var targetReachedAt = -1;
+            var recNiches = 0;
+            var recVolume = 0;
+            var recRoi = 0;
+
+            for (var calc = 0; calc < nicheResults.length; calc++) {
+                cumBets += nicheResults[calc].bets;
+                cumProfit += nicheResults[calc].profit;
+                var cumPicksMonth = (cumBets / yearsCount) / 12;
+                if (targetReachedAt < 0 && cumPicksMonth >= targetPicks) {
+                    targetReachedAt = calc;
+                    recNiches = calc + 1;
+                    recVolume = cumPicksMonth;
+                    recRoi = cumBets > 0 ? (cumProfit / cumBets) * 100 : 0;
+                }
             }
+            // Si cible jamais atteinte, prendre tout
+            if (targetReachedAt < 0) {
+                recNiches = nicheResults.length;
+                recVolume = maxBetsPerMonth;
+                recRoi = maxCombinedRoi;
+            }
+
+            // Afficher le resume avec STRATEGIE RECOMMANDEE
+            var summaryHtml = '';
+
+            // Bloc strategie recommandee (en fonction de la cible)
+            summaryHtml += '<div style="margin-bottom:.75rem;padding:.75rem;background:rgba(34,197,94,0.15);border:2px solid var(--green);border-radius:8px">';
+            summaryHtml += '<div style="font-size:.85rem;font-weight:700;color:var(--green);margin-bottom:.5rem">🎯 Strategie pour ' + targetPicks + ' picks/mois</div>';
+            summaryHtml += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">';
+            summaryHtml += '<div style="text-align:center;padding:.5rem;background:var(--bg);border-radius:4px"><div style="font-size:1.3rem;font-weight:700;color:var(--green)">' + recNiches + '</div><div style="font-size:.65rem;color:var(--muted)">Niches a garder</div></div>';
+            summaryHtml += '<div style="text-align:center;padding:.5rem;background:var(--bg);border-radius:4px"><div style="font-size:1.3rem;font-weight:700;color:var(--blue)">' + recVolume.toFixed(1) + '</div><div style="font-size:.65rem;color:var(--muted)">Picks/mois</div></div>';
+            summaryHtml += '<div style="text-align:center;padding:.5rem;background:var(--bg);border-radius:4px"><div style="font-size:1.3rem;font-weight:700;color:' + (recRoi >= 10 ? 'var(--green)' : 'var(--yellow)') + '">+' + recRoi.toFixed(1) + '%</div><div style="font-size:.65rem;color:var(--muted)">ROI</div></div>';
+            summaryHtml += '</div></div>';
+
+            // Stats globales (plus petites)
+            summaryHtml += '<div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">Stats globales (toutes niches):</div>';
+            summaryHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:.3rem;margin-bottom:.5rem">';
+            summaryHtml += '<div style="padding:.3rem;background:var(--bg);border-radius:4px;text-align:center;font-size:.65rem"><span style="color:var(--muted)">Total:</span> <strong>' + nicheResults.length + '</strong> niches</div>';
+            summaryHtml += '<div style="padding:.3rem;background:var(--bg);border-radius:4px;text-align:center;font-size:.65rem"><span style="color:var(--muted)">Max:</span> <strong>' + maxBetsPerMonth.toFixed(1) + '</strong> p/m</div>';
+            summaryHtml += '<div style="padding:.3rem;background:var(--bg);border-radius:4px;text-align:center;font-size:.65rem"><span style="color:var(--muted)">ROI max:</span> <strong>+' + maxCombinedRoi.toFixed(1) + '%</strong></div>';
+            summaryHtml += '</div>';
 
             // Avertissement si volume max < cible
             if (maxBetsPerMonth < targetPicks) {
-                summaryHtml += '<div style="background:rgba(251,191,36,0.2);border:1px solid var(--yellow);padding:.75rem;border-radius:6px;font-size:.8rem">';
-                summaryHtml += '<strong style="color:var(--yellow)">⚠️ Volume insuffisant:</strong> ';
-                summaryHtml += 'Toutes tes niches combinees = <strong>' + maxBetsPerMonth.toFixed(1) + ' picks/mois</strong>. ';
-                summaryHtml += 'Pour atteindre ' + targetPicks + ' picks/mois, ajoute plus de niches depuis le Detecteur.';
-                summaryHtml += '</div>';
-            } else {
-                summaryHtml += '<div style="background:rgba(34,197,94,0.15);border:1px solid var(--green);padding:.5rem;border-radius:6px;font-size:.75rem">';
-                summaryHtml += '<strong style="color:var(--green)">✓ Volume OK:</strong> ' + maxBetsPerMonth.toFixed(1) + ' picks/mois disponibles >= cible ' + targetPicks + '.';
+                summaryHtml += '<div style="background:rgba(251,191,36,0.2);border:1px solid var(--yellow);padding:.5rem;border-radius:6px;font-size:.75rem">';
+                summaryHtml += '<strong style="color:var(--yellow)">⚠️</strong> Volume insuffisant pour atteindre ' + targetPicks + ' picks/mois. Ajoute des niches dans le Detecteur.';
                 summaryHtml += '</div>';
             }
 
             document.getElementById('pfSummary').innerHTML = summaryHtml;
 
-            // ======== LISTE UNIQUE TRIEE PAR SCORE ========
-            // Trier par score decroissant (meilleures niches en premier)
-            nicheResults.sort(function(a, b) { return b.score - a.score; });
-
-            // Calculer les cumuls progressifs
-            var cumBets = 0;
-            var cumProfit = 0;
-            var targetReachedAt = -1;
+            // ======== LISTE TRIEE ========
+            // Reset cumuls pour l'affichage
+            cumBets = 0;
+            cumProfit = 0;
 
             var compHtml = '<div class="card">';
             compHtml += '<div style="font-size:1rem;font-weight:700;margin-bottom:.5rem">📊 Classement de tes niches</div>';
@@ -15635,14 +15655,13 @@
                 var cumPicksMonth = (cumBets / yearsCount) / 12;
                 var cumRoi = cumBets > 0 ? (cumProfit / cumBets) * 100 : 0;
 
-                // Marquer quand on atteint la cible
-                var reachedTarget = (targetReachedAt < 0 && cumPicksMonth >= targetPicks);
-                if (reachedTarget) targetReachedAt = i;
+                // Verifier si c'est la ligne ou la cible est atteinte
+                var isTargetLine = (i === targetReachedAt);
 
                 var circuitBadge = n.niche.circuit === 'atp' ? '<span style="color:var(--green);font-weight:700">A</span>' : '<span style="color:var(--pink);font-weight:700">W</span>';
                 var roiColor = n.roi >= 20 ? 'var(--green)' : n.roi >= 10 ? 'var(--blue)' : n.roi >= 0 ? 'var(--yellow)' : 'var(--red)';
                 var scoreColor = n.score >= 60 ? 'var(--green)' : n.score >= 40 ? 'var(--blue)' : 'var(--yellow)';
-                var rowBg = reachedTarget ? 'background:rgba(34,197,94,0.2);border:2px solid var(--green)' : (i % 2 === 0 ? 'background:var(--bg)' : '');
+                var rowBg = isTargetLine ? 'background:rgba(34,197,94,0.2);border:2px solid var(--green)' : (i % 2 === 0 ? 'background:var(--bg)' : '');
 
                 compHtml += '<tr style="' + rowBg + '">';
                 compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);font-weight:600">' + (i + 1) + '</td>';
@@ -15655,7 +15674,7 @@
                 compHtml += '</tr>';
 
                 // Ajouter une ligne de separation apres la cible atteinte
-                if (reachedTarget) {
+                if (isTargetLine) {
                     compHtml += '<tr><td colspan="7" style="padding:.3rem;background:var(--green);color:#000;text-align:center;font-weight:700;font-size:.65rem">';
                     compHtml += '▲ CIBLE ' + targetPicks + ' picks/mois ATTEINTE (' + (i + 1) + ' niches, ROI +' + cumRoi.toFixed(1) + '%) ▲';
                     compHtml += '</td></tr>';
