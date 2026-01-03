@@ -15383,11 +15383,12 @@
             pfMaxRoi.roi = pfMaxRoi.totalBets > 0 ? (pfMaxRoi.totalProfit / pfMaxRoi.totalBets) * 100 : 0;
 
             // ======== PORTFOLIO 2: EQUILIBRE ========
-            // Cible un ROI minimum de 10% et maximise le volume
+            // ROI >= 10%, trie par score equilibre (ROI * volume), jusqu'au volume cible
             var pfBalanced = { niches: [], totalBets: 0, totalProfit: 0, name: 'Equilibre' };
             var balancedNiches = nicheResults.filter(function(n) { return n.roi >= 10; });
-            balancedNiches.sort(function(a, b) { return b.betsPerYear - a.betsPerYear; });  // Trier par volume
-            for (var i = 0; i < balancedNiches.length; i++) {
+            // Score = ROI * sqrt(betsPerYear) pour equilibrer rentabilite et volume
+            balancedNiches.sort(function(a, b) { return (b.roi * Math.sqrt(b.betsPerYear)) - (a.roi * Math.sqrt(a.betsPerYear)); });
+            for (var i = 0; i < balancedNiches.length && pfBalanced.totalBets / yearsCount < targetPerYear; i++) {
                 pfBalanced.niches.push(balancedNiches[i]);
                 pfBalanced.totalBets += balancedNiches[i].bets;
                 pfBalanced.totalProfit += balancedNiches[i].profit;
@@ -15396,11 +15397,11 @@
             pfBalanced.roi = pfBalanced.totalBets > 0 ? (pfBalanced.totalProfit / pfBalanced.totalBets) * 100 : 0;
 
             // ======== PORTFOLIO 3: MAX REGULARITE ========
-            // Maximise le volume en acceptant un ROI plus faible (>5%)
+            // ROI >= 5%, trie par volume decroissant, jusqu'au volume cible
             var pfMaxVolume = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max Regularite' };
             var volumeNiches = nicheResults.filter(function(n) { return n.roi >= 5; });
             volumeNiches.sort(function(a, b) { return b.betsPerYear - a.betsPerYear; });
-            for (var i = 0; i < volumeNiches.length; i++) {
+            for (var i = 0; i < volumeNiches.length && pfMaxVolume.totalBets / yearsCount < targetPerYear; i++) {
                 pfMaxVolume.niches.push(volumeNiches[i]);
                 pfMaxVolume.totalBets += volumeNiches[i].bets;
                 pfMaxVolume.totalProfit += volumeNiches[i].profit;
