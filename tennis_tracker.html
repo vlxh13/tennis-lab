@@ -264,7 +264,7 @@
     </div>
 
     <!-- Stats rapides -->
-    <div class="stats-grid">
+    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
         <div class="stat">
             <div class="label">P&L</div>
             <div class="value" id="statPnl">+0€</div>
@@ -276,6 +276,10 @@
         <div class="stat">
             <div class="label">Winrate</div>
             <div class="value" id="statWinrate">0%</div>
+        </div>
+        <div class="stat">
+            <div class="label">Max DD</div>
+            <div class="value neg" id="statDDTop">0€</div>
         </div>
     </div>
 
@@ -327,7 +331,7 @@
                 </div>
             </div>
 
-            <div class="form-row three">
+            <div class="form-row two">
                 <div class="form-group">
                     <label>Cote</label>
                     <input type="number" id="addOdds" step="0.01" placeholder="1.85" oninput="updateMisePreview()">
@@ -344,11 +348,6 @@
                         <option value="1.75">1.75u</option>
                         <option value="2">2u</option>
                     </select>
-                </div>
-                <div class="form-group autocomplete-wrapper">
-                    <label>Tournoi</label>
-                    <input type="text" id="addTournoi" placeholder="AO" oninput="onTournoiInput(this)" autocomplete="off">
-                    <div class="autocomplete-list" id="autocomplete-tournoi"></div>
                 </div>
             </div>
 
@@ -476,8 +475,7 @@
             unitFlat: 20,
             pending: [],
             history: [],
-            players: [],
-            tournois: []
+            players: []
         };
 
         let profitChart = null;
@@ -560,6 +558,7 @@
 
             // Drawdown
             const dd = calcDrawdown();
+            document.getElementById('statDDTop').textContent = dd.max.toFixed(0) + '€';
             document.getElementById('statDD').textContent = dd.current.toFixed(0) + '€';
             document.getElementById('statDDMax').textContent = dd.max.toFixed(0) + '€';
 
@@ -655,33 +654,6 @@
             document.getElementById('autocomplete-' + type).classList.remove('show');
         }
 
-        function onTournoiInput(input) {
-            const val = input.value.toLowerCase();
-            const list = document.getElementById('autocomplete-tournoi');
-
-            if (val.length < 1) {
-                list.classList.remove('show');
-                return;
-            }
-
-            const matches = state.tournois.filter(t => t.toLowerCase().startsWith(val)).slice(0, 5);
-
-            if (matches.length === 0) {
-                list.classList.remove('show');
-                return;
-            }
-
-            list.innerHTML = matches.map(t =>
-                '<div class="autocomplete-item" onclick="selectTournoi(\'' + t.replace(/'/g, "\\'") + '\')">' + t + '</div>'
-            ).join('');
-            list.classList.add('show');
-        }
-
-        function selectTournoi(name) {
-            document.getElementById('addTournoi').value = name;
-            document.getElementById('autocomplete-tournoi').classList.remove('show');
-        }
-
         // Close autocomplete on click outside
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.autocomplete-wrapper')) {
@@ -717,7 +689,6 @@
             const detail = document.getElementById('addDetail').value.trim();
             const odds = parseFloat(document.getElementById('addOdds').value);
             const units = parseFloat(document.getElementById('addUnits').value);
-            const tournoi = document.getElementById('addTournoi').value.trim();
 
             if (!j1 || !j2 || !odds || odds < 1.01) {
                 alert('Remplis au moins J1, J2 et la cote');
@@ -750,16 +721,14 @@
                 odds,
                 units,
                 stake: Math.round(stake),
-                tournoi,
                 bankrollAtBet: state.bankroll
             };
 
             state.pending.push(bet);
 
-            // Save players and tournois for autocomplete
+            // Save players for autocomplete
             if (!state.players.includes(j1)) state.players.push(j1);
             if (!state.players.includes(j2)) state.players.push(j2);
-            if (tournoi && !state.tournois.includes(tournoi)) state.tournois.push(tournoi);
 
             saveState();
 
@@ -825,7 +794,7 @@
                     </div>
                     <div class="bet-details">
                         <span class="bet-type">${b.typeLabel}</span>
-                        ${b.tournoi ? b.tournoi + ' • ' : ''}${b.units}u = ${b.stake}€
+                        ${b.units}u = ${b.stake}€
                     </div>
                     <div class="bet-actions">
                         <button class="btn btn-sm btn-green" onclick="resolveBet(${b.id}, true)">Gagné</button>
@@ -852,7 +821,7 @@
                     </div>
                     <div class="bet-details">
                         <span class="bet-type">${b.typeLabel}</span>
-                        ${b.tournoi ? b.tournoi + ' • ' : ''}@${b.odds.toFixed(2)} • ${b.units}u
+                        @${b.odds.toFixed(2)} • ${b.units}u
                         <span style="float:right;color:var(--muted)">${b.resolvedDate}</span>
                     </div>
                 </div>
