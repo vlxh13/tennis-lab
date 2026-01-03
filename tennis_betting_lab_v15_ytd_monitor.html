@@ -15601,92 +15601,83 @@
 
             document.getElementById('pfSummary').innerHTML = summaryHtml;
 
-            // Afficher les 3 portfolios
-            var portfolios = [pfMaxRoi, pfBalanced, pfMaxVolume];
-            var colors = ['var(--green)', 'var(--blue)', 'var(--purple)'];
-            var icons = ['🏆', '⚖️', '📈'];
-            var descriptions = [
-                'Uniquement les niches ROI >= 15%. Moins de picks mais meilleure rentabilite.',
-                'Atteint ta cible de ' + targetPicks + ' picks/mois avec les meilleures niches (ROI >= 5%).',
-                'Toutes les niches rentables (ROI > 0%). Maximum de picks pour la visibilite.'
-            ];
+            // ======== LISTE UNIQUE TRIEE PAR SCORE ========
+            // Trier par score decroissant (meilleures niches en premier)
+            nicheResults.sort(function(a, b) { return b.score - a.score; });
 
-            var compHtml = '';
-            for (var p = 0; p < portfolios.length; p++) {
-                var pf = portfolios[p];
-                var isRecommended = pf.betsPerMonth >= 25 && pf.betsPerMonth <= 45 && pf.roi >= 10;
+            // Calculer les cumuls progressifs
+            var cumBets = 0;
+            var cumProfit = 0;
+            var targetReachedAt = -1;
 
-                compHtml += '<div class="card" style="border-left:3px solid ' + colors[p] + ';' + (isRecommended ? 'box-shadow:0 0 15px ' + colors[p] + '40' : '') + '">';
-                compHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">';
-                compHtml += '<div style="font-size:1.1rem;font-weight:700">' + icons[p] + ' ' + pf.name + '</div>';
-                if (isRecommended) compHtml += '<span style="background:var(--green);color:#000;padding:.2rem .5rem;border-radius:4px;font-size:.7rem;font-weight:700">RECOMMANDE</span>';
-                compHtml += '</div>';
+            var compHtml = '<div class="card">';
+            compHtml += '<div style="font-size:1rem;font-weight:700;margin-bottom:.5rem">📊 Classement de tes niches</div>';
+            compHtml += '<p style="font-size:.75rem;color:var(--muted);margin-bottom:.75rem">Triees par score. Meilleures en haut, moins bonnes en bas. La ligne verte indique ou tu atteins ta cible de ' + targetPicks + ' picks/mois.</p>';
 
-                compHtml += '<p style="font-size:.75rem;color:var(--muted);margin-bottom:.75rem">' + descriptions[p] + '</p>';
+            // En-tete du tableau
+            compHtml += '<div style="overflow-x:auto">';
+            compHtml += '<table style="width:100%;font-size:.7rem;border-collapse:collapse">';
+            compHtml += '<thead><tr style="background:var(--bg);position:sticky;top:0">';
+            compHtml += '<th style="padding:.4rem;text-align:left;border-bottom:2px solid var(--border)">#</th>';
+            compHtml += '<th style="padding:.4rem;text-align:left;border-bottom:2px solid var(--border)">Niche</th>';
+            compHtml += '<th style="padding:.4rem;text-align:center;border-bottom:2px solid var(--border)">p/m</th>';
+            compHtml += '<th style="padding:.4rem;text-align:center;border-bottom:2px solid var(--border)">ROI</th>';
+            compHtml += '<th style="padding:.4rem;text-align:center;border-bottom:2px solid var(--border)">Score</th>';
+            compHtml += '<th style="padding:.4rem;text-align:center;border-bottom:2px solid var(--border);color:var(--blue)">Cumul p/m</th>';
+            compHtml += '<th style="padding:.4rem;text-align:center;border-bottom:2px solid var(--border);color:var(--blue)">Cumul ROI</th>';
+            compHtml += '</tr></thead><tbody>';
 
-                compHtml += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.75rem">';
-                compHtml += '<div style="text-align:center;padding:.5rem;background:var(--bg);border-radius:4px">';
-                compHtml += '<div style="font-size:1.2rem;font-weight:700;color:' + colors[p] + '">' + pf.betsPerMonth.toFixed(1) + '</div>';
-                compHtml += '<div style="font-size:.65rem;color:var(--muted)">picks/mois</div></div>';
+            for (var i = 0; i < nicheResults.length; i++) {
+                var n = nicheResults[i];
+                var picksPerMonth = n.betsPerYear / 12;
+                cumBets += n.bets;
+                cumProfit += n.profit;
+                var cumPicksMonth = (cumBets / yearsCount) / 12;
+                var cumRoi = cumBets > 0 ? (cumProfit / cumBets) * 100 : 0;
 
-                compHtml += '<div style="text-align:center;padding:.5rem;background:var(--bg);border-radius:4px">';
-                compHtml += '<div style="font-size:1.2rem;font-weight:700;color:' + (pf.roi >= 15 ? 'var(--green)' : pf.roi >= 10 ? 'var(--blue)' : 'var(--yellow)') + '">+' + pf.roi.toFixed(1) + '%</div>';
-                compHtml += '<div style="font-size:.65rem;color:var(--muted)">ROI</div></div>';
+                // Marquer quand on atteint la cible
+                var reachedTarget = (targetReachedAt < 0 && cumPicksMonth >= targetPicks);
+                if (reachedTarget) targetReachedAt = i;
 
-                compHtml += '<div style="text-align:center;padding:.5rem;background:var(--bg);border-radius:4px">';
-                compHtml += '<div style="font-size:1.2rem;font-weight:700">' + pf.niches.length + '</div>';
-                compHtml += '<div style="font-size:.65rem;color:var(--muted)">niches</div></div>';
-                compHtml += '</div>';
+                var circuitBadge = n.niche.circuit === 'atp' ? '<span style="color:var(--green);font-weight:700">A</span>' : '<span style="color:var(--pink);font-weight:700">W</span>';
+                var roiColor = n.roi >= 20 ? 'var(--green)' : n.roi >= 10 ? 'var(--blue)' : n.roi >= 0 ? 'var(--yellow)' : 'var(--red)';
+                var scoreColor = n.score >= 60 ? 'var(--green)' : n.score >= 40 ? 'var(--blue)' : 'var(--yellow)';
+                var rowBg = reachedTarget ? 'background:rgba(34,197,94,0.2);border:2px solid var(--green)' : (i % 2 === 0 ? 'background:var(--bg)' : '');
 
-                // Avertissement si volume en dessous de la cible
-                if (pf.betsPerMonth < targetPicks * 0.8) {
-                    var deficit = targetPicks - pf.betsPerMonth;
-                    compHtml += '<div style="background:rgba(251,191,36,0.15);border:1px solid var(--yellow);padding:.5rem;border-radius:4px;margin-bottom:.5rem;font-size:.7rem">';
-                    compHtml += '<strong style="color:var(--yellow)">⚠️ Volume insuffisant:</strong> ';
-                    compHtml += 'Cible ' + targetPicks + ' picks/mois, disponible ' + pf.betsPerMonth.toFixed(1) + ' (historique). ';
-                    compHtml += 'Les niches validees ne permettent pas d\'atteindre ta cible avec ce niveau de ROI.';
-                    compHtml += '</div>';
-                } else if (pf.betsPerMonth >= targetPicks) {
-                    compHtml += '<div style="background:rgba(34,197,94,0.15);border:1px solid var(--green);padding:.5rem;border-radius:4px;margin-bottom:.5rem;font-size:.7rem">';
-                    compHtml += '<strong style="color:var(--green)">✓ Volume OK:</strong> ';
-                    compHtml += pf.betsPerMonth.toFixed(1) + ' picks/mois historique >= cible ' + targetPicks + '. Realiste pour Blogabet.';
-                    compHtml += '</div>';
+                compHtml += '<tr style="' + rowBg + '">';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);font-weight:600">' + (i + 1) + '</td>';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + n.name + '">' + circuitBadge + ' ' + n.name + '</td>';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);text-align:center">' + picksPerMonth.toFixed(1) + '</td>';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);text-align:center;color:' + roiColor + ';font-weight:600">+' + n.roi.toFixed(0) + '%</td>';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);text-align:center;color:' + scoreColor + ';font-weight:600">' + n.score + '</td>';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);text-align:center;color:var(--blue);font-weight:600">' + cumPicksMonth.toFixed(1) + '</td>';
+                compHtml += '<td style="padding:.4rem;border-bottom:1px solid var(--border);text-align:center;color:' + (cumRoi >= 15 ? 'var(--green)' : cumRoi >= 10 ? 'var(--blue)' : 'var(--yellow)') + ';font-weight:600">+' + cumRoi.toFixed(1) + '%</td>';
+                compHtml += '</tr>';
+
+                // Ajouter une ligne de separation apres la cible atteinte
+                if (reachedTarget) {
+                    compHtml += '<tr><td colspan="7" style="padding:.3rem;background:var(--green);color:#000;text-align:center;font-weight:700;font-size:.65rem">';
+                    compHtml += '▲ CIBLE ' + targetPicks + ' picks/mois ATTEINTE (' + (i + 1) + ' niches, ROI +' + cumRoi.toFixed(1) + '%) ▲';
+                    compHtml += '</td></tr>';
                 }
+            }
 
-                // Trouver les niches a desactiver (celles qui ne sont pas dans le portfolio)
-                var includedNames = pf.niches.map(function(n) { return n.name; });
-                var excludedNiches = pf.allNiches.filter(function(n) { return includedNames.indexOf(n.name) === -1; });
+            compHtml += '</tbody></table></div>';
 
-                // Section Niches a ACTIVER (vertes)
-                compHtml += '<div style="font-size:.75rem;font-weight:600;margin-bottom:.25rem;color:var(--green)">✓ Niches a ACTIVER (' + pf.niches.length + '):</div>';
-                compHtml += '<div style="max-height:180px;overflow-y:auto;font-size:.65rem;padding:.5rem;background:rgba(34,197,94,0.08);border:1px solid var(--green);border-radius:6px;margin-bottom:.5rem">';
-                for (var n = 0; n < pf.niches.length; n++) {
-                    var niche = pf.niches[n];
-                    var circuitBadge = niche.niche.circuit === 'atp' ? '<span style="color:var(--green);font-weight:700">ATP</span>' : '<span style="color:var(--pink);font-weight:700">WTA</span>';
-                    var picksPerMonth = (niche.betsPerYear / 12).toFixed(1);
-                    compHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .2rem;' + (n < pf.niches.length - 1 ? 'border-bottom:1px solid rgba(34,197,94,0.2)' : '') + '">';
-                    compHtml += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + niche.name + '"><span style="color:var(--green);margin-right:.3rem">✓</span>' + circuitBadge + ' ' + niche.name + '</span>';
-                    compHtml += '<span style="color:var(--muted);margin-left:.5rem;white-space:nowrap">' + picksPerMonth + ' p/m | <span style="color:var(--green)">+' + niche.roi.toFixed(0) + '%</span></span>';
-                    compHtml += '</div>';
-                }
+            // Resume en bas
+            if (targetReachedAt >= 0) {
+                compHtml += '<div style="margin-top:.75rem;padding:.5rem;background:rgba(34,197,94,0.15);border:1px solid var(--green);border-radius:6px;font-size:.75rem">';
+                compHtml += '<strong style="color:var(--green)">✓ Recommandation:</strong> Active les <strong>' + (targetReachedAt + 1) + ' premieres niches</strong> pour atteindre ta cible. ';
+                compHtml += 'Les niches en dessous de la ligne verte sont optionnelles (volume bonus mais ROI dilue).';
                 compHtml += '</div>';
-
-                // Section Niches a DESACTIVER (rouges) - seulement si il y en a
-                if (excludedNiches.length > 0) {
-                    compHtml += '<div style="font-size:.75rem;font-weight:600;margin-bottom:.25rem;color:var(--red)">✗ Niches a DESACTIVER (' + excludedNiches.length + '):</div>';
-                    compHtml += '<div style="max-height:120px;overflow-y:auto;font-size:.65rem;padding:.5rem;background:rgba(239,68,68,0.08);border:1px solid var(--red);border-radius:6px;opacity:0.8">';
-                    for (var e = 0; e < excludedNiches.length; e++) {
-                        var exNiche = excludedNiches[e];
-                        var exCircuit = exNiche.niche.circuit === 'atp' ? '<span style="color:var(--green);font-weight:700">ATP</span>' : '<span style="color:var(--pink);font-weight:700">WTA</span>';
-                        compHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .2rem;' + (e < excludedNiches.length - 1 ? 'border-bottom:1px solid rgba(239,68,68,0.2)' : '') + '">';
-                        compHtml += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:line-through;opacity:0.7" title="' + exNiche.name + '"><span style="color:var(--red);margin-right:.3rem">✗</span>' + exCircuit + ' ' + exNiche.name + '</span>';
-                        compHtml += '<span style="color:var(--muted);margin-left:.5rem;white-space:nowrap;opacity:0.7">+' + exNiche.roi.toFixed(0) + '%</span>';
-                        compHtml += '</div>';
-                    }
-                    compHtml += '</div>';
-                }
+            } else {
+                compHtml += '<div style="margin-top:.75rem;padding:.5rem;background:rgba(251,191,36,0.15);border:1px solid var(--yellow);border-radius:6px;font-size:.75rem">';
+                compHtml += '<strong style="color:var(--yellow)">⚠️ Volume insuffisant:</strong> Toutes tes niches combinees = ' + maxBetsPerMonth.toFixed(1) + ' picks/mois. ';
+                compHtml += 'Ajoute plus de niches dans le Detecteur pour atteindre ' + targetPicks + ' picks/mois.';
                 compHtml += '</div>';
             }
+
+            compHtml += '</div>';
 
             document.getElementById('pfComparison').innerHTML = compHtml;
             showToast('Portfolios generes avec succes', 'success');
