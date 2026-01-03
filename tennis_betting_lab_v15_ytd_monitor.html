@@ -15833,8 +15833,12 @@
                         if (m.surface !== n.surf) { surfMiss++; continue; }
                         if (n.rounds.indexOf(m.round) === -1) { roundMiss++; continue; }
 
-                        var dominated = m.odds_player1 < m.odds_player2;
-                        var targetOdds = isUnderdog ? (dominated ? m.odds_player2 : m.odds_player1) : (dominated ? m.odds_player1 : m.odds_player2);
+                        var odds1 = parseFloat(m.odds_player1);
+                        var odds2 = parseFloat(m.odds_player2);
+                        if (isNaN(odds1) || isNaN(odds2) || odds1 <= 1 || odds2 <= 1) { oddsMiss++; continue; }
+
+                        var dominated = odds1 < odds2;
+                        var targetOdds = isUnderdog ? (dominated ? odds2 : odds1) : (dominated ? odds1 : odds2);
                         if (targetOdds < n.min || targetOdds > n.max) { oddsMiss++; continue; }
 
                         var win = isUnderdog ? !dominated : dominated;
