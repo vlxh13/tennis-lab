@@ -15331,7 +15331,7 @@
             }
 
             var total = wins + losses;
-            if (total < 30) return null;  // Minimum 30 paris pour significativite statistique
+            if (total < 15) return null;  // Minimum 15 paris par periode
 
             return {
                 bets: total,
@@ -15382,7 +15382,7 @@
             }
 
             var total = wins + losses;
-            if (total < 50) return null;  // Minimum 50 paris sur periode complete
+            if (total < 40) return null;  // Minimum 40 paris sur periode complete (2007-2025)
 
             return {
                 niche: niche,
@@ -15424,9 +15424,9 @@
                 await new Promise(function(r) { setTimeout(r, 50); });
 
             // Periodes pour validation train/test (elimine l'overfitting)
-            var trainStart = 2015, trainEnd = 2021;  // 7 ans pour entrainer
-            var testStart = 2022, testEnd = 2025;    // 4 ans pour valider
-            var fullStart = 2015, fullEnd = 2025;    // Periode complete pour ROI final
+            var trainStart = 2007, trainEnd = 2019;  // 13 ans pour entrainer
+            var testStart = 2020, testEnd = 2025;    // 6 ans pour valider
+            var fullStart = 2007, fullEnd = 2025;    // Periode complete pour ROI final
             var yearsCount = fullEnd - fullStart + 1;
 
             // Generer toutes les niches dynamiquement
@@ -15543,7 +15543,7 @@
 
             // Afficher le resume
             var summaryHtml = '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(34,197,94,0.1);border-radius:6px;font-size:.75rem">';
-            summaryHtml += '<strong>Validation Train/Test:</strong> Niches rentables sur 2015-2021 <u>ET</u> 2022-2025';
+            summaryHtml += '<strong>Validation Train/Test:</strong> ROI > 5% sur 2007-2019 <u>ET</u> 2020-2025 (min 15 paris/période)';
             summaryHtml += '</div>';
             summaryHtml += '<div style="display:flex;gap:1rem;flex-wrap:wrap">';
             summaryHtml += '<div><strong>Combinaisons testees:</strong> ' + totalNiches.toLocaleString() + '</div>';
