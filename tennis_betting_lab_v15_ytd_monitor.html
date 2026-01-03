@@ -15844,8 +15844,8 @@
                         if (m.surface !== n.surf) { surfMiss++; continue; }
                         if (n.rounds.indexOf(m.round) === -1) { roundMiss++; continue; }
 
-                        var odds1 = parseFloat(m.odds_player1);
-                        var odds2 = parseFloat(m.odds_player2);
+                        var odds1 = parseFloat(m.o1);
+                        var odds2 = parseFloat(m.o2);
                         if (isNaN(odds1) || isNaN(odds2) || odds1 <= 1 || odds2 <= 1) { oddsMiss++; continue; }
 
                         var dominated = odds1 < odds2;
