@@ -15455,11 +15455,11 @@
 
                 var data = n.circuit === 'atp' ? btDataATP : btDataWTA;
 
-                // ETAPE 1: Test sur periode TRAIN (2015-2021) - minimum 30 paris, ROI > 5%
+                // ETAPE 1: Test sur periode TRAIN (2007-2019) - minimum 15 paris, ROI > 5%
                 var trainResult = backtestNichePeriod(n, data, trainStart, trainEnd);
                 if (!trainResult || trainResult.roi <= 5) continue;
 
-                // ETAPE 2: Test sur periode TEST (2022-2025) - minimum 30 paris, ROI > 5%
+                // ETAPE 2: Test sur periode TEST (2020-2025) - minimum 15 paris, ROI > 5%
                 var testResult = backtestNichePeriod(n, data, testStart, testEnd);
                 if (!testResult || testResult.roi <= 5) continue;
 
@@ -15479,8 +15479,8 @@
                     if (validatedCount === 1) {
                         console.log('[Portfolio] === PREMIERE NICHE VALIDEE ===');
                         console.log('[Portfolio] Niche:', fullResult.name);
-                        console.log('[Portfolio] TRAIN (2015-2021): ' + trainResult.bets + ' paris, ROI ' + trainResult.roi.toFixed(1) + '%');
-                        console.log('[Portfolio] TEST (2022-2025): ' + testResult.bets + ' paris, ROI ' + testResult.roi.toFixed(1) + '%');
+                        console.log('[Portfolio] TRAIN (2007-2019): ' + trainResult.bets + ' paris, ROI ' + trainResult.roi.toFixed(1) + '%');
+                        console.log('[Portfolio] TEST (2020-2025): ' + testResult.bets + ' paris, ROI ' + testResult.roi.toFixed(1) + '%');
                         console.log('[Portfolio] TOTAL: ' + fullResult.bets + ' paris, ROI ' + fullResult.roi.toFixed(1) + '%');
                         console.log('[Portfolio] Wins:', fullResult.wins, '/ Profit:', fullResult.profit.toFixed(2));
                     }
@@ -15541,16 +15541,32 @@
             document.getElementById('pfLoading').style.display = 'none';
             document.getElementById('pfResults').style.display = 'block';
 
+            // Calculer volume max disponible avec toutes les niches validees
+            var totalMaxBets = nicheResults.reduce(function(sum, n) { return sum + n.bets; }, 0);
+            var totalMaxProfit = nicheResults.reduce(function(sum, n) { return sum + n.profit; }, 0);
+            var maxBetsPerMonth = (totalMaxBets / yearsCount) / 12;
+            var maxCombinedRoi = totalMaxBets > 0 ? (totalMaxProfit / totalMaxBets) * 100 : 0;
+
             // Afficher le resume
             var summaryHtml = '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(34,197,94,0.1);border-radius:6px;font-size:.75rem">';
-            summaryHtml += '<strong>Validation Train/Test:</strong> ROI > 5% sur 2007-2019 <u>ET</u> 2020-2025 (min 15 paris/période)';
+            summaryHtml += '<strong>Validation Train/Test:</strong> ROI > 5% sur 2007-2019 <u>ET</u> 2020-2025 (min 15 paris/periode)';
             summaryHtml += '</div>';
-            summaryHtml += '<div style="display:flex;gap:1rem;flex-wrap:wrap">';
-            summaryHtml += '<div><strong>Combinaisons testees:</strong> ' + totalNiches.toLocaleString() + '</div>';
-            summaryHtml += '<div><strong>Niches validees:</strong> ' + nicheResults.length + '</div>';
-            summaryHtml += '<div><strong>Taux validation:</strong> ' + (nicheResults.length / totalNiches * 100).toFixed(1) + '%</div>';
-            summaryHtml += '<div><strong>Circuit:</strong> ' + pfCircuit.toUpperCase() + '</div>';
+            summaryHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-bottom:.5rem">';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Combinaisons</div><div style="font-weight:700">' + totalNiches.toLocaleString() + '</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Niches validees</div><div style="font-weight:700;color:var(--green)">' + nicheResults.length + '</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Volume MAX dispo</div><div style="font-weight:700;color:var(--blue)">' + maxBetsPerMonth.toFixed(1) + ' picks/mois</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">ROI combine (toutes)</div><div style="font-weight:700;color:' + (maxCombinedRoi >= 10 ? 'var(--green)' : 'var(--yellow)') + '">+' + maxCombinedRoi.toFixed(1) + '%</div></div>';
             summaryHtml += '</div>';
+
+            // Avertissement global si volume max < cible
+            if (maxBetsPerMonth < targetPicks) {
+                summaryHtml += '<div style="background:rgba(251,191,36,0.2);border:1px solid var(--yellow);padding:.75rem;border-radius:6px;font-size:.8rem">';
+                summaryHtml += '<strong style="color:var(--yellow)">⚠️ Realite:</strong> ';
+                summaryHtml += 'Meme en utilisant TOUTES les ' + nicheResults.length + ' niches validees, tu n\'atteins que <strong>' + maxBetsPerMonth.toFixed(1) + ' picks/mois</strong>. ';
+                summaryHtml += 'Cible de ' + targetPicks + ' picks/mois non atteignable avec les criteres de validation actuels.';
+                summaryHtml += '</div>';
+            }
+
             document.getElementById('pfSummary').innerHTML = summaryHtml;
 
             // Afficher les 3 portfolios
@@ -15590,14 +15606,39 @@
                 compHtml += '<div style="font-size:.65rem;color:var(--muted)">niches</div></div>';
                 compHtml += '</div>';
 
+                // Avertissement si volume en dessous de la cible
+                if (pf.betsPerMonth < targetPicks * 0.8) {
+                    var deficit = targetPicks - pf.betsPerMonth;
+                    compHtml += '<div style="background:rgba(251,191,36,0.15);border:1px solid var(--yellow);padding:.5rem;border-radius:4px;margin-bottom:.5rem;font-size:.7rem">';
+                    compHtml += '<strong style="color:var(--yellow)">⚠️ Volume insuffisant:</strong> ';
+                    compHtml += 'Cible ' + targetPicks + ' picks/mois, disponible ' + pf.betsPerMonth.toFixed(1) + ' (historique). ';
+                    compHtml += 'Les niches validees ne permettent pas d\'atteindre ta cible avec ce niveau de ROI.';
+                    compHtml += '</div>';
+                } else if (pf.betsPerMonth >= targetPicks) {
+                    compHtml += '<div style="background:rgba(34,197,94,0.15);border:1px solid var(--green);padding:.5rem;border-radius:4px;margin-bottom:.5rem;font-size:.7rem">';
+                    compHtml += '<strong style="color:var(--green)">✓ Volume OK:</strong> ';
+                    compHtml += pf.betsPerMonth.toFixed(1) + ' picks/mois historique >= cible ' + targetPicks + '. Realiste pour Blogabet.';
+                    compHtml += '</div>';
+                }
+
                 compHtml += '<div style="font-size:.7rem;font-weight:600;margin-bottom:.25rem">Niches incluses:</div>';
-                compHtml += '<div style="max-height:150px;overflow-y:auto;font-size:.7rem;padding:.5rem;background:var(--bg);border-radius:4px">';
+                compHtml += '<div style="max-height:200px;overflow-y:auto;font-size:.65rem;padding:.5rem;background:var(--bg);border-radius:4px">';
+                compHtml += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:.25rem;padding-bottom:.25rem;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted)">';
+                compHtml += '<span>Niche</span><span style="text-align:center">picks/m</span><span style="text-align:center">Train</span><span style="text-align:center">Test</span><span style="text-align:center">ROI</span></div>';
                 for (var n = 0; n < pf.niches.length; n++) {
                     var niche = pf.niches[n];
-                    var circuitBadge = niche.niche.circuit === 'atp' ? '<span style="color:var(--green)">[ATP]</span>' : '<span style="color:var(--pink)">[WTA]</span>';
-                    compHtml += '<div style="display:flex;justify-content:space-between;padding:.15rem 0;border-bottom:1px solid var(--border)">';
-                    compHtml += '<span>' + circuitBadge + ' ' + niche.name + '</span>';
-                    compHtml += '<span style="color:' + (niche.roi >= 15 ? 'var(--green)' : 'var(--blue)') + '">+' + niche.roi.toFixed(0) + '%</span>';
+                    var circuitBadge = niche.niche.circuit === 'atp' ? '<span style="color:var(--green)">[A]</span>' : '<span style="color:var(--pink)">[W]</span>';
+                    var picksPerMonth = (niche.betsPerYear / 12).toFixed(1);
+                    var trainRoi = niche.trainROI ? niche.trainROI.toFixed(0) : '-';
+                    var testRoi = niche.testROI ? niche.testROI.toFixed(0) : '-';
+                    var trainColor = niche.trainROI >= 10 ? 'var(--green)' : 'var(--yellow)';
+                    var testColor = niche.testROI >= 10 ? 'var(--green)' : 'var(--yellow)';
+                    compHtml += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:.25rem;padding:.2rem 0;border-bottom:1px solid var(--border)">';
+                    compHtml += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + niche.name + '">' + circuitBadge + ' ' + niche.name.replace(/\[ATP\]|\[WTA\]/g, '').trim() + '</span>';
+                    compHtml += '<span style="text-align:center;color:var(--muted)">' + picksPerMonth + '</span>';
+                    compHtml += '<span style="text-align:center;color:' + trainColor + '">+' + trainRoi + '%</span>';
+                    compHtml += '<span style="text-align:center;color:' + testColor + '">+' + testRoi + '%</span>';
+                    compHtml += '<span style="text-align:center;color:' + (niche.roi >= 15 ? 'var(--green)' : 'var(--blue)') + ';font-weight:600">+' + niche.roi.toFixed(0) + '%</span>';
                     compHtml += '</div>';
                 }
                 compHtml += '</div>';
