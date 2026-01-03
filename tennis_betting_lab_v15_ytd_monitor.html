@@ -15516,7 +15516,7 @@
 
             // ======== PORTFOLIO 1: MAX ROI ========
             // Prend les meilleures niches ROI jusqu'a atteindre le volume cible
-            var pfMaxRoi = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max ROI' };
+            var pfMaxRoi = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max ROI', allNiches: nicheResults };
             for (var i = 0; i < nicheResults.length && pfMaxRoi.totalBets / yearsCount < targetPerYear; i++) {
                 pfMaxRoi.niches.push(nicheResults[i]);
                 pfMaxRoi.totalBets += nicheResults[i].bets;
@@ -15527,7 +15527,7 @@
 
             // ======== PORTFOLIO 2: EQUILIBRE ========
             // ROI >= 10%, trie par score equilibre (ROI * volume), jusqu'au volume cible
-            var pfBalanced = { niches: [], totalBets: 0, totalProfit: 0, name: 'Equilibre' };
+            var pfBalanced = { niches: [], totalBets: 0, totalProfit: 0, name: 'Equilibre', allNiches: nicheResults };
             var balancedNiches = nicheResults.filter(function(n) { return n.roi >= 10; });
             // Score = ROI * sqrt(betsPerYear) pour equilibrer rentabilite et volume
             balancedNiches.sort(function(a, b) { return (b.roi * Math.sqrt(b.betsPerYear)) - (a.roi * Math.sqrt(a.betsPerYear)); });
@@ -15541,7 +15541,7 @@
 
             // ======== PORTFOLIO 3: MAX REGULARITE ========
             // ROI >= 5%, trie par volume decroissant, jusqu'au volume cible
-            var pfMaxVolume = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max Regularite' };
+            var pfMaxVolume = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max Regularite', allNiches: nicheResults };
             var volumeNiches = nicheResults.filter(function(n) { return n.roi >= 5; });
             volumeNiches.sort(function(a, b) { return b.betsPerYear - a.betsPerYear; });
             for (var i = 0; i < volumeNiches.length && pfMaxVolume.totalBets / yearsCount < targetPerYear; i++) {
@@ -15651,31 +15651,38 @@
                     compHtml += '</div>';
                 }
 
-                compHtml += '<div style="font-size:.7rem;font-weight:600;margin-bottom:.25rem">Niches incluses:</div>';
-                compHtml += '<div style="max-height:200px;overflow-y:auto;font-size:.6rem;padding:.5rem;background:var(--bg);border-radius:4px">';
-                compHtml += '<div style="display:grid;grid-template-columns:2.5fr 0.8fr 0.8fr 0.8fr 0.8fr 0.6fr;gap:.2rem;padding-bottom:.25rem;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted)">';
-                compHtml += '<span>Niche</span><span style="text-align:center">p/m</span><span style="text-align:center">3ans</span><span style="text-align:center">Train</span><span style="text-align:center">Test</span><span style="text-align:center">Sc</span></div>';
+                // Trouver les niches a desactiver (celles qui ne sont pas dans le portfolio)
+                var includedNames = pf.niches.map(function(n) { return n.name; });
+                var excludedNiches = pf.allNiches.filter(function(n) { return includedNames.indexOf(n.name) === -1; });
+
+                // Section Niches a ACTIVER (vertes)
+                compHtml += '<div style="font-size:.75rem;font-weight:600;margin-bottom:.25rem;color:var(--green)">✓ Niches a ACTIVER (' + pf.niches.length + '):</div>';
+                compHtml += '<div style="max-height:180px;overflow-y:auto;font-size:.65rem;padding:.5rem;background:rgba(34,197,94,0.08);border:1px solid var(--green);border-radius:6px;margin-bottom:.5rem">';
                 for (var n = 0; n < pf.niches.length; n++) {
                     var niche = pf.niches[n];
-                    var circuitBadge = niche.niche.circuit === 'atp' ? '<span style="color:var(--green)">[A]</span>' : '<span style="color:var(--pink)">[W]</span>';
+                    var circuitBadge = niche.niche.circuit === 'atp' ? '<span style="color:var(--green);font-weight:700">ATP</span>' : '<span style="color:var(--pink);font-weight:700">WTA</span>';
                     var picksPerMonth = (niche.betsPerYear / 12).toFixed(1);
-                    var roi3 = niche.roi3 ? niche.roi3.toFixed(0) : '-';
-                    var trainRoi = niche.trainROI ? niche.trainROI.toFixed(0) : '-';
-                    var testRoi = niche.testROI ? niche.testROI.toFixed(0) : '-';
-                    var roi3Color = niche.roi3 >= 10 ? 'var(--green)' : niche.roi3 >= 0 ? 'var(--blue)' : 'var(--red)';
-                    var trainColor = niche.trainROI >= 10 ? 'var(--green)' : niche.trainROI >= 0 ? 'var(--blue)' : 'var(--red)';
-                    var testColor = niche.testROI >= 10 ? 'var(--green)' : niche.testROI >= 0 ? 'var(--blue)' : 'var(--red)';
-                    var scoreColor = niche.score >= 70 ? 'var(--green)' : niche.score >= 50 ? 'var(--blue)' : 'var(--yellow)';
-                    compHtml += '<div style="display:grid;grid-template-columns:2.5fr 0.8fr 0.8fr 0.8fr 0.8fr 0.6fr;gap:.2rem;padding:.15rem 0;border-bottom:1px solid var(--border)">';
-                    compHtml += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + niche.name + '">' + circuitBadge + ' ' + niche.name + '</span>';
-                    compHtml += '<span style="text-align:center;color:var(--muted)">' + picksPerMonth + '</span>';
-                    compHtml += '<span style="text-align:center;color:' + roi3Color + '">' + (niche.roi3 >= 0 ? '+' : '') + roi3 + '%</span>';
-                    compHtml += '<span style="text-align:center;color:' + trainColor + '">' + (niche.trainROI >= 0 ? '+' : '') + trainRoi + '%</span>';
-                    compHtml += '<span style="text-align:center;color:' + testColor + '">' + (niche.testROI >= 0 ? '+' : '') + testRoi + '%</span>';
-                    compHtml += '<span style="text-align:center;color:' + scoreColor + ';font-weight:600">' + niche.score + '</span>';
+                    compHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .2rem;' + (n < pf.niches.length - 1 ? 'border-bottom:1px solid rgba(34,197,94,0.2)' : '') + '">';
+                    compHtml += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + niche.name + '"><span style="color:var(--green);margin-right:.3rem">✓</span>' + circuitBadge + ' ' + niche.name + '</span>';
+                    compHtml += '<span style="color:var(--muted);margin-left:.5rem;white-space:nowrap">' + picksPerMonth + ' p/m | <span style="color:var(--green)">+' + niche.roi.toFixed(0) + '%</span></span>';
                     compHtml += '</div>';
                 }
                 compHtml += '</div>';
+
+                // Section Niches a DESACTIVER (rouges) - seulement si il y en a
+                if (excludedNiches.length > 0) {
+                    compHtml += '<div style="font-size:.75rem;font-weight:600;margin-bottom:.25rem;color:var(--red)">✗ Niches a DESACTIVER (' + excludedNiches.length + '):</div>';
+                    compHtml += '<div style="max-height:120px;overflow-y:auto;font-size:.65rem;padding:.5rem;background:rgba(239,68,68,0.08);border:1px solid var(--red);border-radius:6px;opacity:0.8">';
+                    for (var e = 0; e < excludedNiches.length; e++) {
+                        var exNiche = excludedNiches[e];
+                        var exCircuit = exNiche.niche.circuit === 'atp' ? '<span style="color:var(--green);font-weight:700">ATP</span>' : '<span style="color:var(--pink);font-weight:700">WTA</span>';
+                        compHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .2rem;' + (e < excludedNiches.length - 1 ? 'border-bottom:1px solid rgba(239,68,68,0.2)' : '') + '">';
+                        compHtml += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:line-through;opacity:0.7" title="' + exNiche.name + '"><span style="color:var(--red);margin-right:.3rem">✗</span>' + exCircuit + ' ' + exNiche.name + '</span>';
+                        compHtml += '<span style="color:var(--muted);margin-left:.5rem;white-space:nowrap;opacity:0.7">+' + exNiche.roi.toFixed(0) + '%</span>';
+                        compHtml += '</div>';
+                    }
+                    compHtml += '</div>';
+                }
                 compHtml += '</div>';
             }
 
