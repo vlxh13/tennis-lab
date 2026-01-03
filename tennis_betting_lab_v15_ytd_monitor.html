@@ -15770,7 +15770,7 @@
             }
 
             // Sauvegarder les changements
-            saveCustomNiches();
+            saveNiches();
 
             // Rafraichir les affichages
             if (typeof renderNichesList === 'function') renderNichesList();
@@ -15893,30 +15893,39 @@
                         return scoreB - scoreA;
                     })[0];
 
+                // Stocker les combos pour pouvoir les appliquer
+                window.pfBestCombos = {
+                    roi: bestByROI,
+                    volume: bestByVolume,
+                    dd: bestByDD,
+                    balanced: bestBalanced
+                };
+
                 // Afficher les resultats
                 var html = '<div style="font-size:.75rem;font-weight:700;margin-bottom:.5rem;color:var(--purple)">🏆 MEILLEURES COMBINAISONS</div>';
 
-                function renderCombo(title, combo, color) {
+                function renderCombo(title, combo, color, comboKey) {
                     if (!combo) return '<div style="padding:.5rem;background:var(--bg);border-radius:4px;margin-bottom:.5rem;font-size:.65rem;color:var(--muted)">Aucune combo ' + title + ' trouvee</div>';
                     var nicheNames = combo.niches.map(function(n) { return n.name.substring(0, 20); }).join(', ');
                     return '<div style="padding:.5rem;background:var(--bg);border:1px solid ' + color + ';border-radius:6px;margin-bottom:.5rem">' +
                         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">' +
                         '<span style="font-weight:700;color:' + color + ';font-size:.7rem">' + title + '</span>' +
-                        '<span style="font-size:.6rem;color:var(--muted)">' + combo.size + ' niches</span>' +
+                        '<button onclick="applyOptCombo(\'' + comboKey + '\')" style="background:' + color + ';color:#000;border:none;padding:.2rem .5rem;border-radius:4px;font-size:.55rem;font-weight:700;cursor:pointer">Appliquer</button>' +
                         '</div>' +
                         '<div style="display:flex;gap:.75rem;font-size:.65rem;margin-bottom:.25rem">' +
                         '<span>ROI: <b style="color:var(--green)">+' + combo.stats.roi.toFixed(1) + '%</b></span>' +
                         '<span>Vol: <b style="color:var(--blue)">' + combo.stats.betsPerMonth.toFixed(1) + ' p/m</b></span>' +
                         '<span>DD: <b style="color:var(--red)">-' + combo.stats.maxDD.toFixed(1) + 'u</b></span>' +
+                        '<span style="color:var(--muted)">' + combo.size + ' niches</span>' +
                         '</div>' +
                         '<div style="font-size:.55rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + nicheNames + '">' + nicheNames + '</div>' +
                         '</div>';
                 }
 
-                html += renderCombo('🎯 Max ROI', bestByROI, 'var(--green)');
-                html += renderCombo('📊 Max Volume', bestByVolume, 'var(--blue)');
-                html += renderCombo('🛡️ Min Drawdown', bestByDD, 'var(--yellow)');
-                html += renderCombo('⚖️ Equilibre', bestBalanced, 'var(--purple)');
+                html += renderCombo('🎯 Max ROI', bestByROI, 'var(--green)', 'roi');
+                html += renderCombo('📊 Max Volume', bestByVolume, 'var(--blue)', 'volume');
+                html += renderCombo('🛡️ Min Drawdown', bestByDD, 'var(--yellow)', 'dd');
+                html += renderCombo('⚖️ Equilibre', bestBalanced, 'var(--purple)', 'balanced');
 
                 container.innerHTML = html;
                 showToast('Optimisation terminee!', 'success');
@@ -15925,6 +15934,63 @@
                 console.error('[Optimizer] Erreur:', err);
                 container.innerHTML = '<div style="color:var(--red);font-size:.7rem">Erreur: ' + err.message + '</div>';
             }
+        }
+
+        // ============================================
+        // APPLIQUER UNE COMBO OPTIMISEE
+        // Active les niches du combo, desactive les autres
+        // ============================================
+        function applyOptCombo(comboKey) {
+            if (!window.pfBestCombos || !window.pfBestCombos[comboKey]) {
+                showToast('Combo non trouvee', 'error');
+                return;
+            }
+
+            var combo = window.pfBestCombos[comboKey];
+            var comboNicheNames = combo.niches.map(function(n) { return n.name; });
+
+            console.log('[ApplyCombo] Application de', comboKey, ':', comboNicheNames);
+
+            var activated = 0;
+            var deactivated = 0;
+
+            // Traiter NICHES_ATP
+            for (var i = 0; i < NICHES_ATP.length; i++) {
+                var inCombo = comboNicheNames.indexOf(NICHES_ATP[i].name) >= 0;
+                if (inCombo && !NICHES_ATP[i].on) {
+                    NICHES_ATP[i].on = true;
+                    activated++;
+                } else if (!inCombo && NICHES_ATP[i].on) {
+                    NICHES_ATP[i].on = false;
+                    deactivated++;
+                }
+            }
+
+            // Traiter NICHES_WTA
+            for (var j = 0; j < NICHES_WTA.length; j++) {
+                var inComboWTA = comboNicheNames.indexOf(NICHES_WTA[j].name) >= 0;
+                if (inComboWTA && !NICHES_WTA[j].on) {
+                    NICHES_WTA[j].on = true;
+                    activated++;
+                } else if (!inComboWTA && NICHES_WTA[j].on) {
+                    NICHES_WTA[j].on = false;
+                    deactivated++;
+                }
+            }
+
+            // Sauvegarder
+            saveNiches();
+
+            // Rafraichir les affichages
+            if (typeof renderNichesList === 'function') renderNichesList();
+            if (typeof renderNichesInLab === 'function') renderNichesInLab();
+            if (typeof updateSimDisplay === 'function') updateSimDisplay();
+
+            // Relancer le calcul Portfolio Builder
+            buildPortfolios();
+
+            var titles = { roi: 'Max ROI', volume: 'Max Volume', dd: 'Min DD', balanced: 'Equilibre' };
+            showToast('Strategie "' + titles[comboKey] + '" appliquee! ' + combo.niches.length + ' niches actives.', 'success');
         }
 
         init();
