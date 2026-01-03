@@ -822,7 +822,10 @@
                     <div class="bet-details">
                         <span class="bet-type">${b.typeLabel}</span>
                         @${b.odds.toFixed(2)} • ${b.units}u
-                        <span style="float:right;color:var(--muted)">${b.resolvedDate}</span>
+                        <span style="float:right">
+                            <span style="color:var(--muted);margin-right:.5rem">${b.resolvedDate}</span>
+                            <button class="btn btn-sm" style="background:transparent;color:var(--muted);padding:2px 6px;font-size:.65rem" onclick="deleteBet(${b.id}, true)">✕</button>
+                        </span>
                     </div>
                 </div>
             `).join('');
