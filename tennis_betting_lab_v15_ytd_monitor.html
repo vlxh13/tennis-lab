@@ -15824,6 +15824,14 @@
 
                     if (debug) console.log('[getBets] Niche:', n.name, '| cat:', n.cat, '| catKey:', n.cat.replace('Masters ', '').replace('WTA ', 'W').replace('ATP ', '').replace('Grand Slam', 'Grand'), '| surf:', n.surf, '| rounds:', n.rounds, '| strat:', n.strat);
                     if (debug) console.log('[getBets] Data length:', nicheData.length);
+                    // Log des categories uniques dans les donnees
+                    if (debug) {
+                        var cats = {};
+                        for (var x = 0; x < Math.min(nicheData.length, 5000); x++) {
+                            if (nicheData[x].category) cats[nicheData[x].category] = (cats[nicheData[x].category] || 0) + 1;
+                        }
+                        console.log('[getBets] Categories dans data:', Object.keys(cats));
+                    }
 
                     var catMiss = 0, surfMiss = 0, roundMiss = 0, oddsMiss = 0;
 
