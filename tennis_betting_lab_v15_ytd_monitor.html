@@ -2505,18 +2505,31 @@
             var previewTextEl = document.getElementById('betPreviewText');
             var btnEl = document.getElementById('addMatchBtn');
 
-            var val = document.getElementById('addTournament').value;
-            var betOn = document.getElementById('addBetOn').value;
-            var p1 = document.getElementById('addPlayer1').value.trim();
-            var p2 = document.getElementById('addPlayer2').value.trim();
-            var o1 = parseFloat(document.getElementById('addOdds1').value) || 0;
-            var o2 = parseFloat(document.getElementById('addOdds2').value) || 0;
+            // Vérifications null
+            if (!btnEl) {
+                console.log('[Tracker] btnEl not found');
+                return;
+            }
+
+            var tournamentEl = document.getElementById('addTournament');
+            var betOnEl = document.getElementById('addBetOn');
+            var p1El = document.getElementById('addPlayer1');
+            var p2El = document.getElementById('addPlayer2');
+            var o1El = document.getElementById('addOdds1');
+            var o2El = document.getElementById('addOdds2');
+
+            var val = tournamentEl ? tournamentEl.value : '';
+            var betOn = betOnEl ? betOnEl.value : '';
+            var p1 = p1El ? p1El.value.trim() : '';
+            var p2 = p2El ? p2El.value.trim() : '';
+            var o1 = o1El ? (parseFloat(o1El.value) || 0) : 0;
+            var o2 = o2El ? (parseFloat(o2El.value) || 0) : 0;
 
             // Vérifier si tout est rempli
             var isComplete = val && betOn && p1 && p2 && o1 >= 1.01 && o2 >= 1.01;
 
             if (!isComplete) {
-                previewEl.style.display = 'none';
+                if (previewEl) previewEl.style.display = 'none';
                 btnEl.disabled = true;
                 return;
             }
@@ -2535,9 +2548,14 @@
             // Gain potentiel
             var potentialWin = Math.round((odds - 1) * stake);
 
-            previewEl.style.display = 'block';
-            previewTextEl.innerHTML = '✅ <b>' + playerName + '</b> vs ' + opponent + ' @ <b>' + odds.toFixed(2) + '</b> • ' + stratIcon + ' Mise: <b>' + stake + '€</b> → Gain potentiel: <b style="color:var(--green)">+' + potentialWin + '€</b>';
+            if (previewEl) {
+                previewEl.style.display = 'block';
+            }
+            if (previewTextEl) {
+                previewTextEl.innerHTML = '✅ <b>' + playerName + '</b> vs ' + opponent + ' @ <b>' + odds.toFixed(2) + '</b> • ' + stratIcon + ' Mise: <b>' + stake + '€</b> → Gain potentiel: <b style="color:var(--green)">+' + potentialWin + '€</b>';
+            }
             btnEl.disabled = false;
+            console.log('[Tracker] Preview updated, button enabled');
         }
 
         // Ancienne fonction gardée pour compatibilité (redirige vers la nouvelle)
@@ -2546,9 +2564,14 @@
         }
 
         function addMatch() {
+            console.log('[Tracker] addMatch called');
+
             var circuit = document.getElementById('addCircuit').value;
             var val = document.getElementById('addTournament').value;
-            if (!val) return;
+            if (!val) {
+                console.log('[Tracker] No tournament selected');
+                return;
+            }
 
             var parts = val.split('|');
             var tournament = parts[0], cat = parts[1], surf = parts[2];
@@ -2559,13 +2582,20 @@
             var o2 = parseFloat(document.getElementById('addOdds2').value);
             var betOn = document.getElementById('addBetOn').value;
 
-            if (!p1 || !p2 || !betOn) return;
+            console.log('[Tracker] Values:', { circuit, tournament, round, p1, p2, o1, o2, betOn });
+
+            if (!p1 || !p2 || !betOn) {
+                console.log('[Tracker] Missing required fields');
+                return;
+            }
 
             // Calculer la mise avec la stratégie Config
             var stake = calcUniversalStake();
             var odds = betOn === 'p1' ? o1 : o2;
             var playerName = betOn === 'p1' ? p1 : p2;
             var opponent = betOn === 'p1' ? p2 : p1;
+
+            console.log('[Tracker] Creating bet:', { playerName, opponent, odds, stake });
 
             state.pending.push({
                 id: Date.now(),
@@ -2580,6 +2610,7 @@
                 bankrollAtBet: state.bankroll
             });
 
+            console.log('[Tracker] Bet added, saving state...');
             saveState();
 
             // Reset le formulaire
@@ -2589,9 +2620,11 @@
             document.getElementById('addOdds2').value = '';
             document.getElementById('addBetOn').value = '';
             updateBetPreview();
-            
+
             // Mettre à jour l'info de stratégie (la BR peut avoir changé pour les prochains paris)
             updateTrackerStratInfo();
+
+            console.log('[Tracker] addMatch completed');
         }
 
         function resolveBet(id, won) {
