@@ -478,7 +478,7 @@
                 </div>
                 <div>
                     <label style="font-size:.65rem;color:var(--muted);display:block;margin-bottom:2px">Round</label>
-                    <select id="addRound" onchange="updateMatchCheck()" style="width:100%;padding:.4rem;font-size:.85rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)"></select>
+                    <select id="addRound" onchange="updateBetPreview()" style="width:100%;padding:.4rem;font-size:.85rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)"></select>
                 </div>
             </div>
             
@@ -488,30 +488,42 @@
                 <div style="display:flex;gap:.5rem;align-items:flex-end">
                     <div style="flex:1">
                         <label style="font-size:.65rem;color:var(--muted);display:block;margin-bottom:2px">Joueur 1</label>
-                        <input type="text" id="addPlayer1" placeholder="Sinner J." oninput="updateMatchCheck()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+                        <input type="text" id="addPlayer1" placeholder="Sinner J." oninput="updateBetPreview()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)">
                     </div>
                     <div style="width:70px">
                         <label style="font-size:.65rem;color:var(--muted);display:block;margin-bottom:2px">Cote</label>
-                        <input type="number" id="addOdds1" step="0.01" placeholder="1.50" oninput="updateMatchCheck()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;font-weight:600">
+                        <input type="number" id="addOdds1" step="0.01" placeholder="1.50" oninput="updateBetPreview()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;font-weight:600">
                     </div>
                 </div>
                 <!-- Joueur 2 -->
                 <div style="display:flex;gap:.5rem;align-items:flex-end">
                     <div style="flex:1">
                         <label style="font-size:.65rem;color:var(--muted);display:block;margin-bottom:2px">Joueur 2</label>
-                        <input type="text" id="addPlayer2" placeholder="Alcaraz C." oninput="updateMatchCheck()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+                        <input type="text" id="addPlayer2" placeholder="Alcaraz C." oninput="updateBetPreview()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)">
                     </div>
                     <div style="width:70px">
                         <label style="font-size:.65rem;color:var(--muted);display:block;margin-bottom:2px">Cote</label>
-                        <input type="number" id="addOdds2" step="0.01" placeholder="2.50" oninput="updateMatchCheck()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;font-weight:600">
+                        <input type="number" id="addOdds2" step="0.01" placeholder="2.50" oninput="updateBetPreview()" style="width:100%;padding:.5rem;font-size:.9rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);text-align:center;font-weight:600">
                     </div>
                 </div>
             </div>
             
-            <!-- Match check + Bouton -->
+            <!-- Sélection pari + Bouton -->
             <div style="display:flex;gap:.75rem;align-items:stretch;margin-bottom:.75rem">
-                <div class="match-check" id="matchCheck" style="flex:1;margin:0;padding:.6rem .75rem;display:flex;align-items:center">Sélectionne un tournoi et entre les cotes</div>
+                <div style="flex:1;display:flex;gap:.5rem;align-items:center">
+                    <label style="font-size:.75rem;color:var(--muted);white-space:nowrap">Parier sur :</label>
+                    <select id="addBetOn" onchange="updateBetPreview()" style="flex:1;padding:.5rem;font-size:.85rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+                        <option value="">-- Choisir --</option>
+                        <option value="p1">Joueur 1</option>
+                        <option value="p2">Joueur 2</option>
+                    </select>
+                </div>
                 <button class="btn" id="addMatchBtn" onclick="addMatch()" disabled style="white-space:nowrap;padding:.6rem 1.25rem">➕ Ajouter</button>
+            </div>
+
+            <!-- Prévisualisation du pari -->
+            <div id="betPreview" style="display:none;background:var(--bg);border:1px solid var(--green);border-radius:6px;padding:.6rem .75rem;margin-bottom:.75rem">
+                <span id="betPreviewText" style="font-size:.85rem"></span>
             </div>
             
             <!-- Affichage stratégie (configurée dans Config) -->
@@ -2468,95 +2480,115 @@
             return null;
         }
 
-        function updateMatchCheck() {
-            const val = document.getElementById('addTournament').value;
-            const checkEl = document.getElementById('matchCheck');
-            const btnEl = document.getElementById('addMatchBtn');
+        // Fonction pour calculer la mise selon la config (sans niches)
+        function calcUniversalStake() {
+            var cfgBankrollEl = document.getElementById('cfgBankroll');
+            var cfgStakeEl = document.getElementById('cfgStake');
+            var cfgPctStakeEl = document.getElementById('cfgPctStake');
+            var cfgStrategyEl = document.getElementById('cfgStakeStrategy');
 
-            if (!val) {
-                checkEl.className = 'match-check';
-                checkEl.textContent = 'Sélectionne un tournoi';
-                btnEl.disabled = true;
-                return;
-            }
+            var bankroll = cfgBankrollEl ? parseFloat(cfgBankrollEl.value) || 5000 : state.bankroll || 5000;
+            var flatStake = cfgStakeEl ? parseFloat(cfgStakeEl.value) || 100 : state.stake || 100;
+            var pctStake = cfgPctStakeEl ? parseFloat(cfgPctStakeEl.value) || 3 : 3;
+            var strategy = cfgStrategyEl ? cfgStrategyEl.value : 'flat';
 
-            const circuit = document.getElementById('addCircuit').value;
-            const parts = val.split('|');
-            const cat = parts[1], surf = parts[2];
-            const round = document.getElementById('addRound').value;
-            const o1 = parseFloat(document.getElementById('addOdds1').value) || 0;
-            const o2 = parseFloat(document.getElementById('addOdds2').value) || 0;
-            const p1 = document.getElementById('addPlayer1').value;
-            const p2 = document.getElementById('addPlayer2').value;
-
-            if (o1 < 1.01 || o2 < 1.01) {
-                checkEl.className = 'match-check';
-                checkEl.textContent = 'Entre les cotes pour vérifier';
-                btnEl.disabled = true;
-                return;
-            }
-
-            const match = findMatchingNiche(circuit, cat, surf, round, o1, o2);
-            if (match) {
-                const betOnName = match.betOn === 'p1' ? (p1 || 'Joueur 1') : (p2 || 'Joueur 2');
-                const adjustedStake = Math.round(calcTrackerStake(match.niche));
-                const stakeCoef = match.niche.stakeCoef || 1.0;
-                const coefDisplay = stakeCoef !== 1.0 ? ' <span style="color:var(--yellow)">(×' + stakeCoef.toFixed(2) + ')</span>' : '';
-                const cfgStrategyEl = document.getElementById('cfgStakeStrategy');
-                const strategy = cfgStrategyEl ? cfgStrategyEl.value : 'flat';
-                const stratIcon = strategy === 'flat' ? '💵' : '📊';
-                checkEl.className = 'match-check valid';
-                checkEl.innerHTML = `✅ <b>${match.niche.name}</b><br>→ Parier sur <b>${betOnName}</b> @ ${match.odds.toFixed(2)} • ${stratIcon} <b>Mise : ${adjustedStake}€</b>${coefDisplay}`;
-                btnEl.disabled = !p1 || !p2;
+            if (strategy === 'flat') {
+                return Math.round(flatStake);
             } else {
-                checkEl.className = 'match-check invalid';
-                checkEl.textContent = '❌ Hors niche - Ne pas parier';
-                btnEl.disabled = true;
+                return Math.round(bankroll * (pctStake / 100));
             }
         }
 
+        // Prévisualisation du pari (version universelle - sans niches)
+        function updateBetPreview() {
+            var previewEl = document.getElementById('betPreview');
+            var previewTextEl = document.getElementById('betPreviewText');
+            var btnEl = document.getElementById('addMatchBtn');
+
+            var val = document.getElementById('addTournament').value;
+            var betOn = document.getElementById('addBetOn').value;
+            var p1 = document.getElementById('addPlayer1').value.trim();
+            var p2 = document.getElementById('addPlayer2').value.trim();
+            var o1 = parseFloat(document.getElementById('addOdds1').value) || 0;
+            var o2 = parseFloat(document.getElementById('addOdds2').value) || 0;
+
+            // Vérifier si tout est rempli
+            var isComplete = val && betOn && p1 && p2 && o1 >= 1.01 && o2 >= 1.01;
+
+            if (!isComplete) {
+                previewEl.style.display = 'none';
+                btnEl.disabled = true;
+                return;
+            }
+
+            // Calculer la mise
+            var stake = calcUniversalStake();
+            var odds = betOn === 'p1' ? o1 : o2;
+            var playerName = betOn === 'p1' ? p1 : p2;
+            var opponent = betOn === 'p1' ? p2 : p1;
+
+            // Récupérer la stratégie pour l'affichage
+            var cfgStrategyEl = document.getElementById('cfgStakeStrategy');
+            var strategy = cfgStrategyEl ? cfgStrategyEl.value : 'flat';
+            var stratIcon = strategy === 'flat' ? '💵' : '📊';
+
+            // Gain potentiel
+            var potentialWin = Math.round((odds - 1) * stake);
+
+            previewEl.style.display = 'block';
+            previewTextEl.innerHTML = '✅ <b>' + playerName + '</b> vs ' + opponent + ' @ <b>' + odds.toFixed(2) + '</b> • ' + stratIcon + ' Mise: <b>' + stake + '€</b> → Gain potentiel: <b style="color:var(--green)">+' + potentialWin + '€</b>';
+            btnEl.disabled = false;
+        }
+
+        // Ancienne fonction gardée pour compatibilité (redirige vers la nouvelle)
+        function updateMatchCheck() {
+            updateBetPreview();
+        }
+
         function addMatch() {
-            const circuit = document.getElementById('addCircuit').value;
-            const val = document.getElementById('addTournament').value;
+            var circuit = document.getElementById('addCircuit').value;
+            var val = document.getElementById('addTournament').value;
             if (!val) return;
 
-            const parts = val.split('|');
-            const tournament = parts[0], cat = parts[1], surf = parts[2];
-            const round = document.getElementById('addRound').value;
-            const p1 = document.getElementById('addPlayer1').value;
-            const p2 = document.getElementById('addPlayer2').value;
-            const o1 = parseFloat(document.getElementById('addOdds1').value);
-            const o2 = parseFloat(document.getElementById('addOdds2').value);
+            var parts = val.split('|');
+            var tournament = parts[0], cat = parts[1], surf = parts[2];
+            var round = document.getElementById('addRound').value;
+            var p1 = document.getElementById('addPlayer1').value.trim();
+            var p2 = document.getElementById('addPlayer2').value.trim();
+            var o1 = parseFloat(document.getElementById('addOdds1').value);
+            var o2 = parseFloat(document.getElementById('addOdds2').value);
+            var betOn = document.getElementById('addBetOn').value;
 
-            const match = findMatchingNiche(circuit, cat, surf, round, o1, o2);
-            if (!match || !p1 || !p2) return;
+            if (!p1 || !p2 || !betOn) return;
 
-            // Calculer la mise avec la stratégie du tracker
-            var stakeCoef = match.niche.stakeCoef || 1.0;
-            var adjustedStake = Math.round(calcTrackerStake(match.niche));
+            // Calculer la mise avec la stratégie Config
+            var stake = calcUniversalStake();
+            var odds = betOn === 'p1' ? o1 : o2;
+            var playerName = betOn === 'p1' ? p1 : p2;
+            var opponent = betOn === 'p1' ? p2 : p1;
 
             state.pending.push({
                 id: Date.now(),
                 circuit,
                 date: new Date().toISOString().split('T')[0],
                 tournament, round, category: cat, surface: surf,
-                betOn: match.betOn === 'p1' ? p1 : p2,
-                vs: match.betOn === 'p1' ? p2 : p1,
-                odds: match.odds,
-                niche: match.niche.name,
-                nicheId: match.niche.id,
-                stakeCoef: stakeCoef,
-                stake: adjustedStake,
-                strategy: document.getElementById('cfgStakeStrategy')?.value || 'flat',  // Stocker la stratégie utilisée
-                bankrollAtBet: state.bankroll  // Stocker la BR au moment du pari
+                betOn: playerName,
+                vs: opponent,
+                odds: odds,
+                stake: stake,
+                strategy: document.getElementById('cfgStakeStrategy')?.value || 'flat',
+                bankrollAtBet: state.bankroll
             });
 
             saveState();
+
+            // Reset le formulaire
             document.getElementById('addPlayer1').value = '';
             document.getElementById('addPlayer2').value = '';
             document.getElementById('addOdds1').value = '';
             document.getElementById('addOdds2').value = '';
-            updateMatchCheck();
+            document.getElementById('addBetOn').value = '';
+            updateBetPreview();
             
             // Mettre à jour l'info de stratégie (la BR peut avoir changé pour les prochains paris)
             updateTrackerStratInfo();
@@ -2678,18 +2710,16 @@
                 safeHTML('pendingBets', '<div class="no-data">Aucun pari en cours</div>');
             } else {
                 document.getElementById('pendingBets').innerHTML = filteredPending.map(b => {
-                    var nicheStillActive = isNicheStillActive(b.nicheId, b.circuit);
-                    var warningBadge = nicheStillActive ? '' : '<div style="background:var(--red);color:#fff;padding:2px 6px;border-radius:3px;font-size:.55rem;margin-top:4px">⚠️ Niche désactivée</div>';
-                    var coefDisplay = b.stakeCoef && b.stakeCoef !== 1.0 ? ' <span style="color:var(--yellow);font-size:.7rem">(×' + b.stakeCoef.toFixed(2) + ')</span>' : '';
-                    var stratIcon = b.strategy === 'pct' ? '📊' : b.strategy === 'kelly' ? '🧮' : '💵';
+                    var stratIcon = b.strategy === 'pct' ? '📊' : '💵';
+                    var potentialWin = Math.round((b.odds - 1) * b.stake);
                     return `
-                    <div class="bet-card pending ${b.circuit}" style="${nicheStillActive ? '' : 'opacity:0.7;border:1px dashed var(--red)'}">
+                    <div class="bet-card pending ${b.circuit}">
                         <div class="bet-header">
                             <span class="bet-player"><span class="bet-circuit ${b.circuit}">${b.circuit.toUpperCase()}</span> ${b.betOn}</span>
                             <span class="bet-odds">@${b.odds.toFixed(2)}</span>
                         </div>
-                        <div class="bet-details">vs ${b.vs} • ${b.tournament} • ${b.round} • ${stratIcon} ${b.stake}€${coefDisplay}</div>
-                        <div class="bet-niche">${b.niche}${warningBadge}</div>
+                        <div class="bet-details">vs ${b.vs} • ${b.tournament} • ${b.round}</div>
+                        <div style="font-size:.75rem;color:var(--muted);margin:.25rem 0">${stratIcon} ${b.stake}€ → <span style="color:var(--green)">+${potentialWin}€</span></div>
                         <div class="bet-actions">
                             <button class="btn-sm btn-green" onclick="resolveBet(${b.id}, true)">✅ Gagné</button>
                             <button class="btn-sm btn-red" onclick="resolveBet(${b.id}, false)">❌ Perdu</button>
@@ -2704,19 +2734,15 @@
                 safeHTML('historyBets', '<div class="no-data">Aucun historique</div>');
             } else {
                 document.getElementById('historyBets').innerHTML = filteredHistory.slice(0, 30).map(b => {
-                    var nicheStillActive = isNicheStillActive(b.nicheId, b.circuit);
-                    var warningBadge = nicheStillActive ? '' : '<span style="background:var(--purple);color:#fff;padding:1px 4px;border-radius:2px;font-size:.5rem;margin-left:4px">Niche off</span>';
-                    var coefDisplay = b.stakeCoef && b.stakeCoef !== 1.0 ? ' <span style="color:var(--yellow);font-size:.7rem">(×' + b.stakeCoef.toFixed(2) + ')</span>' : '';
-                    var stratIcon = b.strategy === 'pct' ? '📊' : b.strategy === 'kelly' ? '🧮' : '💵';
+                    var stratIcon = b.strategy === 'pct' ? '📊' : '💵';
                     return `
                     <div class="bet-card ${b.won ? 'won' : 'lost'} ${b.circuit}">
                         <div class="bet-header">
                             <span class="bet-player"><span class="bet-circuit ${b.circuit}">${b.circuit.toUpperCase()}</span> ${b.betOn} ${b.won ? '✓' : '✗'}</span>
                             <span class="bet-pnl ${b.pnl >= 0 ? 'pos' : 'neg'}">${b.pnl >= 0 ? '+' : ''}${b.pnl.toFixed(0)}€</span>
                         </div>
-                        <div class="bet-details">vs ${b.vs} • ${b.tournament} • ${b.round} • @${b.odds.toFixed(2)} • ${stratIcon} ${b.stake}€${coefDisplay}</div>
-                        <div class="bet-niche" style="display:flex;justify-content:space-between;align-items:center">
-                            <span>${b.niche}${warningBadge}</span>
+                        <div class="bet-details">vs ${b.vs} • ${b.tournament} • ${b.round} • @${b.odds.toFixed(2)} • ${stratIcon} ${b.stake}€</div>
+                        <div style="display:flex;justify-content:flex-end;margin-top:.25rem">
                             <button class="btn-sm btn-secondary" onclick="deleteHistoryBet(${b.id})" style="padding:2px 6px;font-size:.65rem">🗑️</button>
                         </div>
                     </div>
