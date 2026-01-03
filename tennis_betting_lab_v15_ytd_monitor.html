@@ -15822,14 +15822,17 @@
                     var results = [];
                     var isUnderdog = n.strat === 'underdog' || n.strat === 'UND';
 
-                    if (debug) console.log('[getBets] Niche:', n.name, '| cat:', n.cat, '| surf:', n.surf, '| rounds:', n.rounds, '| strat:', n.strat);
+                    if (debug) console.log('[getBets] Niche:', n.name, '| cat:', n.cat, '| catKey:', n.cat.replace('Masters ', '').replace('WTA ', 'W').replace('ATP ', '').replace('Grand Slam', 'Grand'), '| surf:', n.surf, '| rounds:', n.rounds, '| strat:', n.strat);
                     if (debug) console.log('[getBets] Data length:', nicheData.length);
 
                     var catMiss = 0, surfMiss = 0, roundMiss = 0, oddsMiss = 0;
 
+                    // Normaliser la categorie comme testComboV2
+                    var catKey = n.cat.replace('Masters ', '').replace('WTA ', 'W').replace('ATP ', '').replace('Grand Slam', 'Grand');
+
                     for (var i = 0; i < nicheData.length; i++) {
                         var m = nicheData[i];
-                        if (m.category !== n.cat) { catMiss++; continue; }
+                        if (!m.category || m.category.indexOf(catKey) < 0) { catMiss++; continue; }
                         if (m.surface !== n.surf) { surfMiss++; continue; }
                         if (n.rounds.indexOf(m.round) === -1) { roundMiss++; continue; }
 
