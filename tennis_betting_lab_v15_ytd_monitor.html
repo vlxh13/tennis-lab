@@ -15401,8 +15401,6 @@
             try {
                 console.log('[Portfolio] Demarrage...');
                 console.log('[Portfolio] Circuit:', pfCircuit);
-                console.log('[Portfolio] ATP data:', btDataATP ? btDataATP.length : 'null');
-                console.log('[Portfolio] WTA data:', btDataWTA ? btDataWTA.length : 'null');
 
                 var targetPicks = parseInt(document.getElementById('pfTargetSlider').value);
 
@@ -15416,81 +15414,95 @@
                     return;
                 }
 
+                // NOUVELLE APPROCHE: Utiliser les niches ajoutees par l'utilisateur
+                var userNiches = [];
+                if (pfCircuit === 'atp' || pfCircuit === 'both') {
+                    NICHES_ATP.forEach(function(n) {
+                        userNiches.push({ niche: n, circuit: 'atp', data: btDataATP });
+                    });
+                }
+                if (pfCircuit === 'wta' || pfCircuit === 'both') {
+                    NICHES_WTA.forEach(function(n) {
+                        userNiches.push({ niche: n, circuit: 'wta', data: btDataWTA });
+                    });
+                }
+
+                console.log('[Portfolio] Niches utilisateur trouvees:', userNiches.length);
+
+                if (userNiches.length === 0) {
+                    showToast('Aucune niche ajoutee! Va dans le Detecteur pour en trouver.', 'error');
+                    return;
+                }
+
                 // Afficher le loading
                 document.getElementById('pfLoading').style.display = 'block';
                 document.getElementById('pfResults').style.display = 'none';
-
-                // Donner un court delai pour l'UI
                 await new Promise(function(r) { setTimeout(r, 50); });
 
-            // Periodes pour validation train/test (elimine l'overfitting)
-            var trainStart = 2007, trainEnd = 2019;  // 13 ans pour entrainer
-            var testStart = 2020, testEnd = 2025;    // 6 ans pour valider
-            var fullStart = 2007, fullEnd = 2025;    // Periode complete pour ROI final
-            var yearsCount = fullEnd - fullStart + 1;
+                // Periodes pour validation train/test
+                var trainStart = 2007, trainEnd = 2019;
+                var testStart = 2020, testEnd = 2025;
+                var fullStart = 2007, fullEnd = 2025;
+                var yearsCount = fullEnd - fullStart + 1;
+                var curYear = new Date().getFullYear();
 
-            // Generer toutes les niches dynamiquement
-            var nichesToTest = generateAllNiches(pfCircuit);
-            console.log('[Portfolio] Niches generees:', nichesToTest.length);
-            console.log('[Portfolio] Matchs ATP:', btDataATP ? btDataATP.length : 0);
-            console.log('[Portfolio] Matchs WTA:', btDataWTA ? btDataWTA.length : 0);
+                // Analyser chaque niche utilisateur
+                var nicheResults = [];
+                var totalNiches = userNiches.length;
 
-            // Stats de debug
-            var debugStats = { totalBetsFound: 0, nichesWithBets: 0 };
+                for (var i = 0; i < totalNiches; i++) {
+                    var item = userNiches[i];
+                    var n = item.niche;
+                    var data = item.data;
 
-            // Backtester toutes les niches avec validation train/test
-            var nicheResults = [];
-            var totalNiches = nichesToTest.length;
-            var validatedCount = 0;
+                    document.getElementById('pfLoadingProgress').textContent = 'Analyse niche ' + (i + 1) + '/' + totalNiches + ': ' + n.name;
+                    await new Promise(function(r) { setTimeout(r, 10); });
 
-            for (var i = 0; i < totalNiches; i++) {
-                var n = nichesToTest[i];
+                    // Utiliser testComboV2 comme le Detecteur
+                    var rTrain = testComboV2(data, n.cat, n.surf, n.rounds, n.strat, n.min, n.max, trainStart, trainEnd);
+                    var rTest = testComboV2(data, n.cat, n.surf, n.rounds, n.strat, n.min, n.max, testStart, testEnd);
+                    var rFull = testComboV2(data, n.cat, n.surf, n.rounds, n.strat, n.min, n.max, fullStart, fullEnd);
+                    var r3 = testComboV2(data, n.cat, n.surf, n.rounds, n.strat, n.min, n.max, curYear - 3, curYear);
 
-                // Mise a jour UI tous les 100 niches pour performance
-                if (i % 100 === 0) {
-                    var pct = Math.round((i / totalNiches) * 100);
-                    document.getElementById('pfLoadingProgress').textContent = 'Scan: ' + pct + '% (' + i + '/' + totalNiches + ') - Validees: ' + validatedCount;
-                    await new Promise(function(r) { setTimeout(r, 1); });
-                }
+                    if (!rFull || rFull.bets < 30) continue;
 
-                var data = n.circuit === 'atp' ? btDataATP : btDataWTA;
+                    var trainROI = rTrain ? rTrain.roi : 0;
+                    var testROI = rTest ? rTest.roi : 0;
+                    var trainBets = rTrain ? rTrain.bets : 0;
+                    var testBets = rTest ? rTest.bets : 0;
+                    var roi3 = r3 ? r3.roi : 0;
 
-                // ETAPE 1: Test sur periode TRAIN (2007-2019) - minimum 15 paris, ROI > 5%
-                var trainResult = backtestNichePeriod(n, data, trainStart, trainEnd);
-                if (!trainResult || trainResult.roi <= 5) continue;
-
-                // ETAPE 2: Test sur periode TEST (2020-2025) - minimum 15 paris, ROI > 5%
-                var testResult = backtestNichePeriod(n, data, testStart, testEnd);
-                if (!testResult || testResult.roi <= 5) continue;
-
-                // ETAPE 3: La niche est validee! Calculer le ROI sur periode complete
-                var fullResult = backtestNicheForPortfolio(n, data, fullStart, fullEnd);
-                if (fullResult && fullResult.roi > 0) {
-                    fullResult.name = '[' + n.circuit.toUpperCase() + '] ' + (n.strat === 'underdog' ? 'UND' : 'FAV') + ' ' + n.cat + ' ' + n.surf + ' ' + n.rounds.join('+') + ' @' + n.min + '-' + n.max;
-                    fullResult.trainROI = trainResult.roi;
-                    fullResult.testROI = testResult.roi;
-                    fullResult.trainBets = trainResult.bets;
-                    fullResult.testBets = testResult.bets;
-                    nicheResults.push(fullResult);
-                    validatedCount++;
-                    debugStats.totalBetsFound += fullResult.bets;
-
-                    // Log la premiere niche validee en detail
-                    if (validatedCount === 1) {
-                        console.log('[Portfolio] === PREMIERE NICHE VALIDEE ===');
-                        console.log('[Portfolio] Niche:', fullResult.name);
-                        console.log('[Portfolio] TRAIN (2007-2019): ' + trainResult.bets + ' paris, ROI ' + trainResult.roi.toFixed(1) + '%');
-                        console.log('[Portfolio] TEST (2020-2025): ' + testResult.bets + ' paris, ROI ' + testResult.roi.toFixed(1) + '%');
-                        console.log('[Portfolio] TOTAL: ' + fullResult.bets + ' paris, ROI ' + fullResult.roi.toFixed(1) + '%');
-                        console.log('[Portfolio] Wins:', fullResult.wins, '/ Profit:', fullResult.profit.toFixed(2));
+                    // Calculer le score comme dans le Detecteur
+                    var scoreData = null;
+                    if (rFull.bets >= 10) {
+                        scoreData = calcCompositeScore(rFull, r3, null, rFull.yearlyData || [], 100);
                     }
-                }
-            }
 
-            console.log('[Portfolio] === RESUME FINAL ===');
-            console.log('[Portfolio] Niches validees:', validatedCount);
-            console.log('[Portfolio] Total paris dans niches validees:', debugStats.totalBetsFound);
-            document.getElementById('pfLoadingProgress').textContent = 'Tri des ' + validatedCount + ' niches validees...';
+                    nicheResults.push({
+                        niche: { cat: n.cat, surf: n.surf, rounds: n.rounds, strat: n.strat, min: n.min, max: n.max, circuit: item.circuit },
+                        name: n.name,
+                        bets: rFull.bets,
+                        betsPerYear: rFull.bets / rFull.yrs,
+                        wins: rFull.wins,
+                        winrate: (rFull.wins / rFull.bets) * 100,
+                        roi: rFull.roi,
+                        profit: rFull.profit,
+                        trainROI: trainROI,
+                        testROI: testROI,
+                        trainBets: trainBets,
+                        testBets: testBets,
+                        roi3: roi3,
+                        score: scoreData ? scoreData.score : 0,
+                        verdict: scoreData ? scoreData.verdict : 'unknown',
+                        isValidated: trainROI > 0 && testROI > 0
+                    });
+
+                    console.log('[Portfolio] Niche:', n.name, '| Bets:', rFull.bets, '| ROI:', rFull.roi.toFixed(1) + '%', '| Train:', trainROI.toFixed(1) + '%', '| Test:', testROI.toFixed(1) + '%');
+                }
+
+                console.log('[Portfolio] === RESUME ===');
+                console.log('[Portfolio] Niches analysees:', nicheResults.length);
+                document.getElementById('pfLoadingProgress').textContent = 'Construction des portfolios...';
 
             // Trier par ROI decroissant
             nicheResults.sort(function(a, b) { return b.roi - a.roi; });
@@ -15547,23 +15559,38 @@
             var maxBetsPerMonth = (totalMaxBets / yearsCount) / 12;
             var maxCombinedRoi = totalMaxBets > 0 ? (totalMaxProfit / totalMaxBets) * 100 : 0;
 
+            // Compter les niches validees (train/test positif)
+            var validatedNiches = nicheResults.filter(function(n) { return n.isValidated; });
+
             // Afficher le resume
             var summaryHtml = '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(34,197,94,0.1);border-radius:6px;font-size:.75rem">';
-            summaryHtml += '<strong>Validation Train/Test:</strong> ROI > 5% sur 2007-2019 <u>ET</u> 2020-2025 (min 15 paris/periode)';
+            summaryHtml += '<strong>Source:</strong> Tes niches ajoutees via le Detecteur. Calculs identiques au Detecteur (testComboV2).';
             summaryHtml += '</div>';
-            summaryHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-bottom:.5rem">';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Combinaisons</div><div style="font-weight:700">' + totalNiches.toLocaleString() + '</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Niches validees</div><div style="font-weight:700;color:var(--green)">' + nicheResults.length + '</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Volume MAX dispo</div><div style="font-weight:700;color:var(--blue)">' + maxBetsPerMonth.toFixed(1) + ' picks/mois</div></div>';
-            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">ROI combine (toutes)</div><div style="font-weight:700;color:' + (maxCombinedRoi >= 10 ? 'var(--green)' : 'var(--yellow)') + '">+' + maxCombinedRoi.toFixed(1) + '%</div></div>';
+            summaryHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-bottom:.5rem">';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Niches ajoutees</div><div style="font-weight:700">' + totalNiches + '</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Avec 30+ paris</div><div style="font-weight:700">' + nicheResults.length + '</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Train+Test OK</div><div style="font-weight:700;color:var(--green)">' + validatedNiches.length + '</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">Volume MAX</div><div style="font-weight:700;color:var(--blue)">' + maxBetsPerMonth.toFixed(1) + ' picks/mois</div></div>';
+            summaryHtml += '<div style="padding:.5rem;background:var(--bg);border-radius:4px;text-align:center"><div style="font-size:.65rem;color:var(--muted)">ROI combine</div><div style="font-weight:700;color:' + (maxCombinedRoi >= 10 ? 'var(--green)' : 'var(--yellow)') + '">+' + maxCombinedRoi.toFixed(1) + '%</div></div>';
             summaryHtml += '</div>';
 
-            // Avertissement global si volume max < cible
+            // Info si peu de niches
+            if (totalNiches < 10) {
+                summaryHtml += '<div style="background:rgba(59,130,246,0.15);border:1px solid var(--blue);padding:.5rem;border-radius:6px;font-size:.75rem;margin-bottom:.5rem">';
+                summaryHtml += '<strong style="color:var(--blue)">💡 Conseil:</strong> Tu n\'as que ' + totalNiches + ' niches. Va dans le Detecteur pour en ajouter davantage et augmenter le volume disponible.';
+                summaryHtml += '</div>';
+            }
+
+            // Avertissement si volume max < cible
             if (maxBetsPerMonth < targetPicks) {
                 summaryHtml += '<div style="background:rgba(251,191,36,0.2);border:1px solid var(--yellow);padding:.75rem;border-radius:6px;font-size:.8rem">';
-                summaryHtml += '<strong style="color:var(--yellow)">⚠️ Realite:</strong> ';
-                summaryHtml += 'Meme en utilisant TOUTES les ' + nicheResults.length + ' niches validees, tu n\'atteins que <strong>' + maxBetsPerMonth.toFixed(1) + ' picks/mois</strong>. ';
-                summaryHtml += 'Cible de ' + targetPicks + ' picks/mois non atteignable avec les criteres de validation actuels.';
+                summaryHtml += '<strong style="color:var(--yellow)">⚠️ Volume insuffisant:</strong> ';
+                summaryHtml += 'Toutes tes niches combinees = <strong>' + maxBetsPerMonth.toFixed(1) + ' picks/mois</strong>. ';
+                summaryHtml += 'Pour atteindre ' + targetPicks + ' picks/mois, ajoute plus de niches depuis le Detecteur.';
+                summaryHtml += '</div>';
+            } else {
+                summaryHtml += '<div style="background:rgba(34,197,94,0.15);border:1px solid var(--green);padding:.5rem;border-radius:6px;font-size:.75rem">';
+                summaryHtml += '<strong style="color:var(--green)">✓ Volume OK:</strong> ' + maxBetsPerMonth.toFixed(1) + ' picks/mois disponibles >= cible ' + targetPicks + '.';
                 summaryHtml += '</div>';
             }
 
@@ -15622,23 +15649,27 @@
                 }
 
                 compHtml += '<div style="font-size:.7rem;font-weight:600;margin-bottom:.25rem">Niches incluses:</div>';
-                compHtml += '<div style="max-height:200px;overflow-y:auto;font-size:.65rem;padding:.5rem;background:var(--bg);border-radius:4px">';
-                compHtml += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:.25rem;padding-bottom:.25rem;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted)">';
-                compHtml += '<span>Niche</span><span style="text-align:center">picks/m</span><span style="text-align:center">Train</span><span style="text-align:center">Test</span><span style="text-align:center">ROI</span></div>';
+                compHtml += '<div style="max-height:200px;overflow-y:auto;font-size:.6rem;padding:.5rem;background:var(--bg);border-radius:4px">';
+                compHtml += '<div style="display:grid;grid-template-columns:2.5fr 0.8fr 0.8fr 0.8fr 0.8fr 0.6fr;gap:.2rem;padding-bottom:.25rem;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted)">';
+                compHtml += '<span>Niche</span><span style="text-align:center">p/m</span><span style="text-align:center">3ans</span><span style="text-align:center">Train</span><span style="text-align:center">Test</span><span style="text-align:center">Sc</span></div>';
                 for (var n = 0; n < pf.niches.length; n++) {
                     var niche = pf.niches[n];
                     var circuitBadge = niche.niche.circuit === 'atp' ? '<span style="color:var(--green)">[A]</span>' : '<span style="color:var(--pink)">[W]</span>';
                     var picksPerMonth = (niche.betsPerYear / 12).toFixed(1);
+                    var roi3 = niche.roi3 ? niche.roi3.toFixed(0) : '-';
                     var trainRoi = niche.trainROI ? niche.trainROI.toFixed(0) : '-';
                     var testRoi = niche.testROI ? niche.testROI.toFixed(0) : '-';
-                    var trainColor = niche.trainROI >= 10 ? 'var(--green)' : 'var(--yellow)';
-                    var testColor = niche.testROI >= 10 ? 'var(--green)' : 'var(--yellow)';
-                    compHtml += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:.25rem;padding:.2rem 0;border-bottom:1px solid var(--border)">';
-                    compHtml += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + niche.name + '">' + circuitBadge + ' ' + niche.name.replace(/\[ATP\]|\[WTA\]/g, '').trim() + '</span>';
+                    var roi3Color = niche.roi3 >= 10 ? 'var(--green)' : niche.roi3 >= 0 ? 'var(--blue)' : 'var(--red)';
+                    var trainColor = niche.trainROI >= 10 ? 'var(--green)' : niche.trainROI >= 0 ? 'var(--blue)' : 'var(--red)';
+                    var testColor = niche.testROI >= 10 ? 'var(--green)' : niche.testROI >= 0 ? 'var(--blue)' : 'var(--red)';
+                    var scoreColor = niche.score >= 70 ? 'var(--green)' : niche.score >= 50 ? 'var(--blue)' : 'var(--yellow)';
+                    compHtml += '<div style="display:grid;grid-template-columns:2.5fr 0.8fr 0.8fr 0.8fr 0.8fr 0.6fr;gap:.2rem;padding:.15rem 0;border-bottom:1px solid var(--border)">';
+                    compHtml += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + niche.name + '">' + circuitBadge + ' ' + niche.name + '</span>';
                     compHtml += '<span style="text-align:center;color:var(--muted)">' + picksPerMonth + '</span>';
-                    compHtml += '<span style="text-align:center;color:' + trainColor + '">+' + trainRoi + '%</span>';
-                    compHtml += '<span style="text-align:center;color:' + testColor + '">+' + testRoi + '%</span>';
-                    compHtml += '<span style="text-align:center;color:' + (niche.roi >= 15 ? 'var(--green)' : 'var(--blue)') + ';font-weight:600">+' + niche.roi.toFixed(0) + '%</span>';
+                    compHtml += '<span style="text-align:center;color:' + roi3Color + '">' + (niche.roi3 >= 0 ? '+' : '') + roi3 + '%</span>';
+                    compHtml += '<span style="text-align:center;color:' + trainColor + '">' + (niche.trainROI >= 0 ? '+' : '') + trainRoi + '%</span>';
+                    compHtml += '<span style="text-align:center;color:' + testColor + '">' + (niche.testROI >= 0 ? '+' : '') + testRoi + '%</span>';
+                    compHtml += '<span style="text-align:center;color:' + scoreColor + ';font-weight:600">' + niche.score + '</span>';
                     compHtml += '</div>';
                 }
                 compHtml += '</div>';
