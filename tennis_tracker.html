@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>TennisTracker</title>
+    <link rel="manifest" href="manifest_tracker.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card: #1a1a1a;
+            --border: #2a2a2a;
+            --text: #e5e5e5;
+            --muted: #888;
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --yellow: #eab308;
+            --purple: #8b5cf6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 1rem;
+            padding-bottom: 5rem;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: .75rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 { font-size: 1.25rem; font-weight: 700; }
+        .header .bankroll {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--green);
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            font-size: .9rem;
+            font-weight: 600;
+            margin-bottom: .75rem;
+            color: var(--text);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .5rem;
+            margin-bottom: 1rem;
+        }
+        .stat {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: .6rem;
+            text-align: center;
+        }
+        .stat .label { font-size: .65rem; color: var(--muted); margin-bottom: .2rem; }
+        .stat .value { font-size: 1rem; font-weight: 700; }
+        .stat .value.pos { color: var(--green); }
+        .stat .value.neg { color: var(--red); }
+        .form-row {
+            display: grid;
+            gap: .5rem;
+            margin-bottom: .75rem;
+        }
+        .form-row.two { grid-template-columns: 1fr 1fr; }
+        .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+        .form-group label {
+            display: block;
+            font-size: .7rem;
+            color: var(--muted);
+            margin-bottom: .25rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: .5rem;
+            font-size: .9rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--blue);
+        }
+        .btn {
+            padding: .6rem 1rem;
+            font-size: .85rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-primary {
+            background: var(--green);
+            color: #000;
+            width: 100%;
+        }
+        .btn-primary:disabled {
+            background: var(--border);
+            color: var(--muted);
+            cursor: not-allowed;
+        }
+        .btn-sm {
+            padding: .4rem .6rem;
+            font-size: .75rem;
+            border-radius: 6px;
+        }
+        .btn-green { background: var(--green); color: #000; }
+        .btn-red { background: var(--red); color: #fff; }
+        .btn-secondary { background: var(--border); color: var(--text); }
+        .mise-display {
+            background: var(--bg);
+            border: 1px solid var(--green);
+            border-radius: 8px;
+            padding: .75rem;
+            text-align: center;
+            margin-bottom: .75rem;
+        }
+        .mise-display .amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--green);
+        }
+        .mise-display .detail {
+            font-size: .75rem;
+            color: var(--muted);
+        }
+        .bet-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .75rem;
+            margin-bottom: .5rem;
+        }
+        .bet-card.pending { border-left: 3px solid var(--yellow); }
+        .bet-card.won { border-left: 3px solid var(--green); }
+        .bet-card.lost { border-left: 3px solid var(--red); }
+        .bet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: .4rem;
+        }
+        .bet-player { font-weight: 600; font-size: .9rem; }
+        .bet-odds { color: var(--blue); font-weight: 600; }
+        .bet-details { font-size: .75rem; color: var(--muted); margin-bottom: .4rem; }
+        .bet-type {
+            display: inline-block;
+            background: var(--purple);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: .65rem;
+            margin-right: .25rem;
+        }
+        .bet-actions {
+            display: flex;
+            gap: .5rem;
+            margin-top: .5rem;
+        }
+        .tabs {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: 1rem;
+        }
+        .tab {
+            flex: 1;
+            padding: .6rem;
+            text-align: center;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: .8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .tab.active {
+            background: var(--blue);
+            border-color: var(--blue);
+            color: #fff;
+        }
+        .section { display: none; }
+        .section.active { display: block; }
+        .chart-container {
+            height: 200px;
+            margin-top: 1rem;
+        }
+        .no-data {
+            text-align: center;
+            color: var(--muted);
+            padding: 2rem;
+            font-size: .85rem;
+        }
+        .autocomplete-wrapper {
+            position: relative;
+        }
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .autocomplete-list.show { display: block; }
+        .autocomplete-item {
+            padding: .5rem;
+            cursor: pointer;
+            font-size: .85rem;
+        }
+        .autocomplete-item:hover {
+            background: var(--bg);
+        }
+        .config-section {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            padding: .5rem;
+            gap: .5rem;
+        }
+        .nav-bottom .tab {
+            border: none;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TennisTracker</h1>
+        <div class="bankroll" id="headerBankroll">1000€</div>
+    </div>
+
+    <!-- Stats rapides -->
+    <div class="stats-grid">
+        <div class="stat">
+            <div class="label">P&L</div>
+            <div class="value" id="statPnl">+0€</div>
+        </div>
+        <div class="stat">
+            <div class="label">ROI</div>
+            <div class="value" id="statRoi">0%</div>
+        </div>
+        <div class="stat">
+            <div class="label">Winrate</div>
+            <div class="value" id="statWinrate">0%</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab active" onclick="showSection('add')">+ Pari</div>
+        <div class="tab" onclick="showSection('pending')">En cours <span id="pendingCount">(0)</span></div>
+        <div class="tab" onclick="showSection('history')">Historique</div>
+        <div class="tab" onclick="showSection('config')">Config</div>
+    </div>
+
+    <!-- Section Ajouter Pari -->
+    <div class="section active" id="section-add">
+        <div class="card">
+            <div class="card-title">Nouveau Pari</div>
+
+            <div class="form-row two">
+                <div class="form-group autocomplete-wrapper">
+                    <label>Joueur 1</label>
+                    <input type="text" id="addJ1" placeholder="Sinner" oninput="onPlayerInput(this, 'j1')" autocomplete="off">
+                    <div class="autocomplete-list" id="autocomplete-j1"></div>
+                </div>
+                <div class="form-group autocomplete-wrapper">
+                    <label>Joueur 2</label>
+                    <input type="text" id="addJ2" placeholder="Alcaraz" oninput="onPlayerInput(this, 'j2')" autocomplete="off">
+                    <div class="autocomplete-list" id="autocomplete-j2"></div>
+                </div>
+            </div>
+
+            <div class="form-row two">
+                <div class="form-group">
+                    <label>Type de pari</label>
+                    <select id="addType" onchange="onTypeChange()">
+                        <option value="j1">J1 gagne</option>
+                        <option value="j2">J2 gagne</option>
+                        <option value="over_jeux">Over jeux</option>
+                        <option value="under_jeux">Under jeux</option>
+                        <option value="over_sets">Over sets</option>
+                        <option value="under_sets">Under sets</option>
+                        <option value="handi_jeux">Handicap jeux</option>
+                        <option value="handi_sets">Handicap sets</option>
+                        <option value="sets_exact">Nb sets exact</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Détail</label>
+                    <input type="text" id="addDetail" placeholder="Ex: 22.5 / -3.5 / 2-1">
+                </div>
+            </div>
+
+            <div class="form-row three">
+                <div class="form-group">
+                    <label>Cote</label>
+                    <input type="number" id="addOdds" step="0.01" placeholder="1.85" oninput="updateMisePreview()">
+                </div>
+                <div class="form-group">
+                    <label>Mise (unités)</label>
+                    <select id="addUnits" onchange="updateMisePreview()">
+                        <option value="0.25">0.25u</option>
+                        <option value="0.5">0.5u</option>
+                        <option value="0.75">0.75u</option>
+                        <option value="1" selected>1u</option>
+                        <option value="1.25">1.25u</option>
+                        <option value="1.5">1.5u</option>
+                        <option value="1.75">1.75u</option>
+                        <option value="2">2u</option>
+                    </select>
+                </div>
+                <div class="form-group autocomplete-wrapper">
+                    <label>Tournoi</label>
+                    <input type="text" id="addTournoi" placeholder="AO" oninput="onTournoiInput(this)" autocomplete="off">
+                    <div class="autocomplete-list" id="autocomplete-tournoi"></div>
+                </div>
+            </div>
+
+            <div class="mise-display">
+                <div class="amount" id="miseAmount">20€</div>
+                <div class="detail" id="miseDetail">1u = 2% de 1000€</div>
+            </div>
+
+            <button class="btn btn-primary" id="btnAdd" onclick="addBet()">Ajouter le pari</button>
+        </div>
+    </div>
+
+    <!-- Section Paris en cours -->
+    <div class="section" id="section-pending">
+        <div class="card">
+            <div class="card-title">Paris en cours</div>
+            <div id="pendingList">
+                <div class="no-data">Aucun pari en cours</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Historique -->
+    <div class="section" id="section-history">
+        <div class="card">
+            <div class="card-title">Historique</div>
+            <div style="margin-bottom:.75rem">
+                <button class="btn btn-sm btn-secondary" onclick="exportCSV()">Export CSV</button>
+            </div>
+            <div id="historyList">
+                <div class="no-data">Aucun historique</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">Courbe de profit</div>
+            <div class="chart-container">
+                <canvas id="profitChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Config -->
+    <div class="section" id="section-config">
+        <div class="card">
+            <div class="card-title">Configuration</div>
+
+            <div class="config-section">
+                <div class="form-group">
+                    <label>Bankroll initiale (€)</label>
+                    <input type="number" id="cfgBankroll" value="1000" onchange="saveConfig()">
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="form-group">
+                    <label>Stratégie de mise</label>
+                    <select id="cfgStrategy" onchange="onStrategyChange()">
+                        <option value="pct">% de Bankroll</option>
+                        <option value="flat">Flat (fixe)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="config-section" id="cfgPctSection">
+                <div class="form-group">
+                    <label>1 unité = X% de la BK</label>
+                    <input type="number" id="cfgUnitPct" value="2" step="0.5" min="0.5" max="10" onchange="saveConfig()">
+                </div>
+                <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem">
+                    Sur 1000€ : 1u = <span id="cfgUnitPreview">20€</span>
+                </div>
+            </div>
+
+            <div class="config-section" id="cfgFlatSection" style="display:none">
+                <div class="form-group">
+                    <label>1 unité = X€ (fixe)</label>
+                    <input type="number" id="cfgUnitFlat" value="20" onchange="saveConfig()">
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="card-title">Stats complètes</div>
+                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="stat">
+                        <div class="label">Paris total</div>
+                        <div class="value" id="statTotal">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Gagnés</div>
+                        <div class="value pos" id="statWon">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Perdus</div>
+                        <div class="value neg" id="statLost">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">P&L (unités)</div>
+                        <div class="value" id="statPnlUnits">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">DD actuel</div>
+                        <div class="value neg" id="statDD">0€</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">DD max</div>
+                        <div class="value neg" id="statDDMax">0€</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <button class="btn btn-sm btn-secondary" onclick="resetAll()" style="background:var(--red)">Reset tout</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // ==================== STATE ====================
+        let state = {
+            bankroll: 1000,
+            initialBankroll: 1000,
+            strategy: 'pct',
+            unitPct: 2,
+            unitFlat: 20,
+            pending: [],
+            history: [],
+            players: [],
+            tournois: []
+        };
+
+        let profitChart = null;
+
+        // ==================== STORAGE ====================
+        function saveState() {
+            localStorage.setItem('tennisTracker', JSON.stringify(state));
+            updateUI();
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('tennisTracker');
+            if (saved) {
+                state = { ...state, ...JSON.parse(saved) };
+            }
+            // Init config UI
+            document.getElementById('cfgBankroll').value = state.initialBankroll;
+            document.getElementById('cfgStrategy').value = state.strategy;
+            document.getElementById('cfgUnitPct').value = state.unitPct;
+            document.getElementById('cfgUnitFlat').value = state.unitFlat;
+            onStrategyChange();
+            updateUI();
+        }
+
+        function saveConfig() {
+            state.initialBankroll = parseFloat(document.getElementById('cfgBankroll').value) || 1000;
+            state.strategy = document.getElementById('cfgStrategy').value;
+            state.unitPct = parseFloat(document.getElementById('cfgUnitPct').value) || 2;
+            state.unitFlat = parseFloat(document.getElementById('cfgUnitFlat').value) || 20;
+
+            // Recalcul bankroll = initial + P&L
+            const pnl = state.history.reduce((s, b) => s + b.pnl, 0);
+            state.bankroll = state.initialBankroll + pnl;
+
+            saveState();
+            updateConfigPreview();
+            updateMisePreview();
+        }
+
+        // ==================== UI ====================
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('section-' + id).classList.add('active');
+            event.target.classList.add('active');
+
+            if (id === 'history') {
+                renderChart();
+            }
+        }
+
+        function updateUI() {
+            // Calculs
+            const pnl = state.history.reduce((s, b) => s + b.pnl, 0);
+            const pnlUnits = state.history.reduce((s, b) => s + b.pnlUnits, 0);
+            const totalStaked = state.history.reduce((s, b) => s + b.stake, 0);
+            const wins = state.history.filter(b => b.won).length;
+            const losses = state.history.filter(b => !b.won).length;
+            const roi = totalStaked > 0 ? (pnl / totalStaked * 100) : 0;
+            const winrate = state.history.length > 0 ? (wins / state.history.length * 100) : 0;
+
+            // Bankroll
+            state.bankroll = state.initialBankroll + pnl;
+            document.getElementById('headerBankroll').textContent = state.bankroll.toFixed(0) + '€';
+            document.getElementById('headerBankroll').style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+            // Stats rapides
+            document.getElementById('statPnl').textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(0) + '€';
+            document.getElementById('statPnl').className = 'value ' + (pnl >= 0 ? 'pos' : 'neg');
+            document.getElementById('statRoi').textContent = (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%';
+            document.getElementById('statRoi').className = 'value ' + (roi >= 0 ? 'pos' : 'neg');
+            document.getElementById('statWinrate').textContent = winrate.toFixed(0) + '%';
+
+            // Stats détaillées
+            document.getElementById('statTotal').textContent = state.history.length;
+            document.getElementById('statWon').textContent = wins;
+            document.getElementById('statLost').textContent = losses;
+            document.getElementById('statPnlUnits').textContent = (pnlUnits >= 0 ? '+' : '') + pnlUnits.toFixed(2) + 'u';
+            document.getElementById('statPnlUnits').className = 'value ' + (pnlUnits >= 0 ? 'pos' : 'neg');
+
+            // Drawdown
+            const dd = calcDrawdown();
+            document.getElementById('statDD').textContent = dd.current.toFixed(0) + '€';
+            document.getElementById('statDDMax').textContent = dd.max.toFixed(0) + '€';
+
+            // Pending count
+            document.getElementById('pendingCount').textContent = '(' + state.pending.length + ')';
+
+            // Render lists
+            renderPending();
+            renderHistory();
+            updateMisePreview();
+        }
+
+        function calcDrawdown() {
+            if (state.history.length === 0) return { current: 0, max: 0 };
+
+            let bankroll = state.initialBankroll;
+            let peak = state.initialBankroll;
+            let maxDD = 0;
+            let currentDD = 0;
+
+            state.history.slice().reverse().forEach(b => {
+                bankroll += b.pnl;
+                if (bankroll > peak) peak = bankroll;
+                const dd = peak - bankroll;
+                if (dd > maxDD) maxDD = dd;
+                currentDD = dd;
+            });
+
+            return { current: currentDD, max: maxDD };
+        }
+
+        function updateConfigPreview() {
+            const bk = parseFloat(document.getElementById('cfgBankroll').value) || 1000;
+            const pct = parseFloat(document.getElementById('cfgUnitPct').value) || 2;
+            const unitEur = bk * pct / 100;
+            document.getElementById('cfgUnitPreview').textContent = unitEur.toFixed(0) + '€';
+        }
+
+        function onStrategyChange() {
+            const strat = document.getElementById('cfgStrategy').value;
+            document.getElementById('cfgPctSection').style.display = strat === 'pct' ? 'block' : 'none';
+            document.getElementById('cfgFlatSection').style.display = strat === 'flat' ? 'block' : 'none';
+            saveConfig();
+        }
+
+        // ==================== MISE CALCULATION ====================
+        function calcMise(units) {
+            if (state.strategy === 'flat') {
+                return units * state.unitFlat;
+            } else {
+                return units * (state.bankroll * state.unitPct / 100);
+            }
+        }
+
+        function updateMisePreview() {
+            const units = parseFloat(document.getElementById('addUnits').value) || 1;
+            const mise = calcMise(units);
+            document.getElementById('miseAmount').textContent = mise.toFixed(0) + '€';
+
+            if (state.strategy === 'flat') {
+                document.getElementById('miseDetail').textContent = units + 'u x ' + state.unitFlat + '€';
+            } else {
+                const unitEur = state.bankroll * state.unitPct / 100;
+                document.getElementById('miseDetail').textContent = units + 'u = ' + (units * state.unitPct) + '% de ' + state.bankroll.toFixed(0) + '€';
+            }
+        }
+
+        // ==================== AUTOCOMPLETE ====================
+        function onPlayerInput(input, type) {
+            const val = input.value.toLowerCase();
+            const list = document.getElementById('autocomplete-' + type);
+
+            if (val.length < 2) {
+                list.classList.remove('show');
+                return;
+            }
+
+            const matches = state.players.filter(p => p.toLowerCase().startsWith(val)).slice(0, 5);
+
+            if (matches.length === 0) {
+                list.classList.remove('show');
+                return;
+            }
+
+            list.innerHTML = matches.map(p =>
+                '<div class="autocomplete-item" onclick="selectPlayer(\'' + type + '\', \'' + p.replace(/'/g, "\\'") + '\')">' + p + '</div>'
+            ).join('');
+            list.classList.add('show');
+        }
+
+        function selectPlayer(type, name) {
+            document.getElementById('add' + type.toUpperCase()).value = name;
+            document.getElementById('autocomplete-' + type).classList.remove('show');
+        }
+
+        function onTournoiInput(input) {
+            const val = input.value.toLowerCase();
+            const list = document.getElementById('autocomplete-tournoi');
+
+            if (val.length < 1) {
+                list.classList.remove('show');
+                return;
+            }
+
+            const matches = state.tournois.filter(t => t.toLowerCase().startsWith(val)).slice(0, 5);
+
+            if (matches.length === 0) {
+                list.classList.remove('show');
+                return;
+            }
+
+            list.innerHTML = matches.map(t =>
+                '<div class="autocomplete-item" onclick="selectTournoi(\'' + t.replace(/'/g, "\\'") + '\')">' + t + '</div>'
+            ).join('');
+            list.classList.add('show');
+        }
+
+        function selectTournoi(name) {
+            document.getElementById('addTournoi').value = name;
+            document.getElementById('autocomplete-tournoi').classList.remove('show');
+        }
+
+        // Close autocomplete on click outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.autocomplete-wrapper')) {
+                document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('show'));
+            }
+        });
+
+        function onTypeChange() {
+            const type = document.getElementById('addType').value;
+            const detailInput = document.getElementById('addDetail');
+
+            const placeholders = {
+                'j1': 'Optionnel',
+                'j2': 'Optionnel',
+                'over_jeux': 'Ex: 22.5',
+                'under_jeux': 'Ex: 21.5',
+                'over_sets': 'Ex: 2.5',
+                'under_sets': 'Ex: 2.5',
+                'handi_jeux': 'Ex: -3.5 ou +4.5',
+                'handi_sets': 'Ex: -1.5 ou +1.5',
+                'sets_exact': 'Ex: 2-0 ou 2-1',
+                'autre': 'Description...'
+            };
+
+            detailInput.placeholder = placeholders[type] || '';
+        }
+
+        // ==================== ADD BET ====================
+        function addBet() {
+            const j1 = document.getElementById('addJ1').value.trim();
+            const j2 = document.getElementById('addJ2').value.trim();
+            const type = document.getElementById('addType').value;
+            const detail = document.getElementById('addDetail').value.trim();
+            const odds = parseFloat(document.getElementById('addOdds').value);
+            const units = parseFloat(document.getElementById('addUnits').value);
+            const tournoi = document.getElementById('addTournoi').value.trim();
+
+            if (!j1 || !j2 || !odds || odds < 1.01) {
+                alert('Remplis au moins J1, J2 et la cote');
+                return;
+            }
+
+            const stake = calcMise(units);
+
+            // Type labels
+            const typeLabels = {
+                'j1': j1 + ' gagne',
+                'j2': j2 + ' gagne',
+                'over_jeux': 'Over ' + detail + ' jeux',
+                'under_jeux': 'Under ' + detail + ' jeux',
+                'over_sets': 'Over ' + detail + ' sets',
+                'under_sets': 'Under ' + detail + ' sets',
+                'handi_jeux': 'Handi jeux ' + detail,
+                'handi_sets': 'Handi sets ' + detail,
+                'sets_exact': 'Score ' + detail,
+                'autre': detail || 'Autre'
+            };
+
+            const bet = {
+                id: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                j1, j2,
+                type,
+                typeLabel: typeLabels[type],
+                detail,
+                odds,
+                units,
+                stake: Math.round(stake),
+                tournoi,
+                bankrollAtBet: state.bankroll
+            };
+
+            state.pending.push(bet);
+
+            // Save players and tournois for autocomplete
+            if (!state.players.includes(j1)) state.players.push(j1);
+            if (!state.players.includes(j2)) state.players.push(j2);
+            if (tournoi && !state.tournois.includes(tournoi)) state.tournois.push(tournoi);
+
+            saveState();
+
+            // Reset form
+            document.getElementById('addJ1').value = '';
+            document.getElementById('addJ2').value = '';
+            document.getElementById('addDetail').value = '';
+            document.getElementById('addOdds').value = '';
+            document.getElementById('addUnits').value = '1';
+            updateMisePreview();
+
+            // Switch to pending
+            showSection('pending');
+        }
+
+        // ==================== RESOLVE BET ====================
+        function resolveBet(id, won) {
+            const bet = state.pending.find(b => b.id === id);
+            if (!bet) return;
+
+            const pnl = won ? (bet.odds - 1) * bet.stake : -bet.stake;
+            const pnlUnits = won ? (bet.odds - 1) * bet.units : -bet.units;
+
+            state.history.unshift({
+                ...bet,
+                won,
+                pnl: Math.round(pnl),
+                pnlUnits,
+                resolvedDate: new Date().toISOString().split('T')[0]
+            });
+
+            state.pending = state.pending.filter(b => b.id !== id);
+            saveState();
+        }
+
+        function deleteBet(id, fromHistory = false) {
+            if (fromHistory) {
+                const bet = state.history.find(b => b.id === id);
+                if (bet && confirm('Supprimer ce pari de l\'historique ?')) {
+                    state.history = state.history.filter(b => b.id !== id);
+                    saveState();
+                }
+            } else {
+                state.pending = state.pending.filter(b => b.id !== id);
+                saveState();
+            }
+        }
+
+        // ==================== RENDER ====================
+        function renderPending() {
+            const container = document.getElementById('pendingList');
+
+            if (state.pending.length === 0) {
+                container.innerHTML = '<div class="no-data">Aucun pari en cours</div>';
+                return;
+            }
+
+            container.innerHTML = state.pending.map(b => `
+                <div class="bet-card pending">
+                    <div class="bet-header">
+                        <span class="bet-player">${b.j1} vs ${b.j2}</span>
+                        <span class="bet-odds">@${b.odds.toFixed(2)}</span>
+                    </div>
+                    <div class="bet-details">
+                        <span class="bet-type">${b.typeLabel}</span>
+                        ${b.tournoi ? b.tournoi + ' • ' : ''}${b.units}u = ${b.stake}€
+                    </div>
+                    <div class="bet-actions">
+                        <button class="btn btn-sm btn-green" onclick="resolveBet(${b.id}, true)">Gagné</button>
+                        <button class="btn btn-sm btn-red" onclick="resolveBet(${b.id}, false)">Perdu</button>
+                        <button class="btn btn-sm btn-secondary" onclick="deleteBet(${b.id})">Suppr</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+
+            if (state.history.length === 0) {
+                container.innerHTML = '<div class="no-data">Aucun historique</div>';
+                return;
+            }
+
+            container.innerHTML = state.history.slice(0, 50).map(b => `
+                <div class="bet-card ${b.won ? 'won' : 'lost'}">
+                    <div class="bet-header">
+                        <span class="bet-player">${b.j1} vs ${b.j2}</span>
+                        <span class="bet-odds" style="color:${b.pnl >= 0 ? 'var(--green)' : 'var(--red)'}">${b.pnl >= 0 ? '+' : ''}${b.pnl}€</span>
+                    </div>
+                    <div class="bet-details">
+                        <span class="bet-type">${b.typeLabel}</span>
+                        ${b.tournoi ? b.tournoi + ' • ' : ''}@${b.odds.toFixed(2)} • ${b.units}u
+                        <span style="float:right;color:var(--muted)">${b.resolvedDate}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==================== CHART ====================
+        function renderChart() {
+            if (state.history.length === 0) return;
+
+            const ctx = document.getElementById('profitChart').getContext('2d');
+
+            // Build cumulative data
+            const sorted = state.history.slice().reverse();
+            let cumulative = 0;
+            const data = sorted.map(b => {
+                cumulative += b.pnl;
+                return cumulative;
+            });
+
+            if (profitChart) {
+                profitChart.destroy();
+            }
+
+            profitChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sorted.map((_, i) => i + 1),
+                    datasets: [{
+                        data: data,
+                        borderColor: data[data.length - 1] >= 0 ? '#22c55e' : '#ef4444',
+                        backgroundColor: (data[data.length - 1] >= 0 ? 'rgba(34,197,94,' : 'rgba(239,68,68,') + '0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            grid: { color: '#2a2a2a' },
+                            ticks: { color: '#888' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== EXPORT CSV ====================
+        function exportCSV() {
+            if (state.history.length === 0) {
+                alert('Aucun historique à exporter');
+                return;
+            }
+
+            const headers = ['Date', 'J1', 'J2', 'Type', 'Detail', 'Tournoi', 'Cote', 'Units', 'Mise', 'Resultat', 'PnL'];
+            const rows = state.history.map(b => [
+                b.resolvedDate,
+                b.j1,
+                b.j2,
+                b.type,
+                b.detail,
+                b.tournoi,
+                b.odds,
+                b.units,
+                b.stake,
+                b.won ? 'W' : 'L',
+                b.pnl
+            ]);
+
+            const csv = [headers, ...rows].map(r => r.map(c => '"' + (c || '') + '"').join(',')).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tennis_tracker_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== RESET ====================
+        function resetAll() {
+            if (confirm('Tout supprimer ? Cette action est irréversible.')) {
+                state = {
+                    bankroll: 1000,
+                    initialBankroll: 1000,
+                    strategy: 'pct',
+                    unitPct: 2,
+                    unitFlat: 20,
+                    pending: [],
+                    history: [],
+                    players: [],
+                    tournois: []
+                };
+                saveState();
+                location.reload();
+            }
+        }
+
+        // ==================== INIT ====================
+        loadState();
+        updateConfigPreview();
+    </script>
+</body>
+</html>
