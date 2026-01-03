@@ -15810,7 +15810,9 @@
             try {
                 var niches = window.pfNicheResults;
                 var userNiches = window.pfUserNiches;
-                var targetPicks = parseInt(document.getElementById('pfTargetSlider').value) || 35;
+                var sliderEl = document.getElementById('pfTargetSlider');
+                var targetPicks = sliderEl ? parseInt(sliderEl.value) : 35;
+                console.log('[Optimizer] Slider trouve:', !!sliderEl, '| Target:', targetPicks);
 
                 console.log('[Optimizer] Demarrage avec', niches.length, 'niches, cible:', targetPicks, 'picks/mois');
 
