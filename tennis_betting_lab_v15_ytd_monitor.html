@@ -15432,6 +15432,11 @@
             // Generer toutes les niches dynamiquement
             var nichesToTest = generateAllNiches(pfCircuit);
             console.log('[Portfolio] Niches generees:', nichesToTest.length);
+            console.log('[Portfolio] Matchs ATP:', btDataATP ? btDataATP.length : 0);
+            console.log('[Portfolio] Matchs WTA:', btDataWTA ? btDataWTA.length : 0);
+
+            // Stats de debug
+            var debugStats = { totalBetsFound: 0, nichesWithBets: 0 };
 
             // Backtester toutes les niches avec validation train/test
             var nicheResults = [];
@@ -15464,10 +15469,27 @@
                     fullResult.name = '[' + n.circuit.toUpperCase() + '] ' + (n.strat === 'underdog' ? 'UND' : 'FAV') + ' ' + n.cat + ' ' + n.surf + ' ' + n.rounds.join('+') + ' @' + n.min + '-' + n.max;
                     fullResult.trainROI = trainResult.roi;
                     fullResult.testROI = testResult.roi;
+                    fullResult.trainBets = trainResult.bets;
+                    fullResult.testBets = testResult.bets;
                     nicheResults.push(fullResult);
                     validatedCount++;
+                    debugStats.totalBetsFound += fullResult.bets;
+
+                    // Log la premiere niche validee en detail
+                    if (validatedCount === 1) {
+                        console.log('[Portfolio] === PREMIERE NICHE VALIDEE ===');
+                        console.log('[Portfolio] Niche:', fullResult.name);
+                        console.log('[Portfolio] TRAIN (2015-2021): ' + trainResult.bets + ' paris, ROI ' + trainResult.roi.toFixed(1) + '%');
+                        console.log('[Portfolio] TEST (2022-2025): ' + testResult.bets + ' paris, ROI ' + testResult.roi.toFixed(1) + '%');
+                        console.log('[Portfolio] TOTAL: ' + fullResult.bets + ' paris, ROI ' + fullResult.roi.toFixed(1) + '%');
+                        console.log('[Portfolio] Wins:', fullResult.wins, '/ Profit:', fullResult.profit.toFixed(2));
+                    }
                 }
             }
+
+            console.log('[Portfolio] === RESUME FINAL ===');
+            console.log('[Portfolio] Niches validees:', validatedCount);
+            console.log('[Portfolio] Total paris dans niches validees:', debugStats.totalBetsFound);
             document.getElementById('pfLoadingProgress').textContent = 'Tri des ' + validatedCount + ' niches validees...';
 
             // Trier par ROI decroissant
