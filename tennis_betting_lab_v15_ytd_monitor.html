@@ -970,6 +970,61 @@
                 <div id="nichesListContainer"></div>
             </div>
         </div>
+
+        <!-- ==================== PORTFOLIO BUILDER ==================== -->
+        <div id="labPortfolio" style="display:none">
+            <div class="card" style="border-left:3px solid var(--blue)">
+                <div class="card-title">📊 Portfolio Builder</div>
+                <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+                    Construis le portfolio optimal pour Blogabet. Définis ton volume cible et compare les meilleures combinaisons.
+                </p>
+
+                <!-- Sélection circuit -->
+                <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+                    <span style="font-size:.8rem;color:var(--muted)">Circuit:</span>
+                    <button class="circuit-tab atp" id="pfCircuitATP" onclick="setPortfolioCircuit('atp')">🟢 ATP</button>
+                    <button class="circuit-tab wta" id="pfCircuitWTA" onclick="setPortfolioCircuit('wta')">🩷 WTA</button>
+                    <button class="circuit-tab global active" id="pfCircuitBoth" onclick="setPortfolioCircuit('both')">📊 ATP + WTA</button>
+                </div>
+
+                <!-- Slider volume -->
+                <div style="background:var(--bg);padding:1rem;border-radius:8px;margin-bottom:1rem">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+                        <span style="font-size:.85rem;font-weight:600">🎯 Objectif picks/mois</span>
+                        <span id="pfTargetValue" style="font-size:1.5rem;font-weight:700;color:var(--blue)">30</span>
+                    </div>
+                    <input type="range" id="pfTargetSlider" min="10" max="60" value="30"
+                           oninput="document.getElementById('pfTargetValue').textContent=this.value"
+                           style="width:100%;accent-color:var(--blue)">
+                    <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:.25rem">
+                        <span>10 (conservateur)</span>
+                        <span>35 (Blogabet idéal)</span>
+                        <span>60 (agressif)</span>
+                    </div>
+                </div>
+
+                <!-- Bouton calcul -->
+                <button onclick="buildPortfolios()" style="width:100%;padding:1rem;background:linear-gradient(135deg,var(--green),var(--blue));color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:1rem">
+                    🚀 Calculer les meilleurs portfolios
+                </button>
+
+                <!-- Zone de chargement -->
+                <div id="pfLoading" style="display:none;text-align:center;padding:2rem">
+                    <div style="font-size:2rem;margin-bottom:.5rem">⏳</div>
+                    <div>Analyse en cours...</div>
+                    <div id="pfLoadingProgress" style="font-size:.8rem;color:var(--muted);margin-top:.5rem"></div>
+                </div>
+
+                <!-- Résultats -->
+                <div id="pfResults" style="display:none">
+                    <!-- Résumé -->
+                    <div id="pfSummary" style="background:var(--bg);padding:1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem"></div>
+
+                    <!-- Comparaison des 3 portfolios -->
+                    <div id="pfComparison" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ==================== SIMULATEUR AVANCÉ ==================== -->
@@ -1551,61 +1606,6 @@
 
         <!-- Liste des niches -->
         <div id="nichesListContainer"></div>
-
-        <!-- ==================== PORTFOLIO BUILDER ==================== -->
-        <div id="labPortfolio" style="display:none">
-            <div class="card" style="border-left:3px solid var(--blue)">
-                <div class="card-title">📊 Portfolio Builder</div>
-                <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
-                    Construis le portfolio optimal pour Blogabet. Définis ton volume cible et compare les meilleures combinaisons.
-                </p>
-
-                <!-- Sélection circuit -->
-                <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
-                    <span style="font-size:.8rem;color:var(--muted)">Circuit:</span>
-                    <button class="circuit-tab atp" id="pfCircuitATP" onclick="setPortfolioCircuit('atp')">🟢 ATP</button>
-                    <button class="circuit-tab wta" id="pfCircuitWTA" onclick="setPortfolioCircuit('wta')">🩷 WTA</button>
-                    <button class="circuit-tab global active" id="pfCircuitBoth" onclick="setPortfolioCircuit('both')">📊 ATP + WTA</button>
-                </div>
-
-                <!-- Slider volume -->
-                <div style="background:var(--bg);padding:1rem;border-radius:8px;margin-bottom:1rem">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-                        <span style="font-size:.85rem;font-weight:600">🎯 Objectif picks/mois</span>
-                        <span id="pfTargetValue" style="font-size:1.5rem;font-weight:700;color:var(--blue)">30</span>
-                    </div>
-                    <input type="range" id="pfTargetSlider" min="10" max="60" value="30"
-                           oninput="document.getElementById('pfTargetValue').textContent=this.value"
-                           style="width:100%;accent-color:var(--blue)">
-                    <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:.25rem">
-                        <span>10 (conservateur)</span>
-                        <span>35 (Blogabet idéal)</span>
-                        <span>60 (agressif)</span>
-                    </div>
-                </div>
-
-                <!-- Bouton calcul -->
-                <button onclick="buildPortfolios()" style="width:100%;padding:1rem;background:linear-gradient(135deg,var(--green),var(--blue));color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:1rem">
-                    🚀 Calculer les meilleurs portfolios
-                </button>
-
-                <!-- Zone de chargement -->
-                <div id="pfLoading" style="display:none;text-align:center;padding:2rem">
-                    <div style="font-size:2rem;margin-bottom:.5rem">⏳</div>
-                    <div>Analyse en cours...</div>
-                    <div id="pfLoadingProgress" style="font-size:.8rem;color:var(--muted);margin-top:.5rem"></div>
-                </div>
-
-                <!-- Résultats -->
-                <div id="pfResults" style="display:none">
-                    <!-- Résumé -->
-                    <div id="pfSummary" style="background:var(--bg);padding:1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem"></div>
-
-                    <!-- Comparaison des 3 portfolios -->
-                    <div id="pfComparison" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem"></div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- ==================== CONFIG ==================== -->
