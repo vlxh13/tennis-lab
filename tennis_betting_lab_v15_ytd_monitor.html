@@ -15331,7 +15331,7 @@
             }
 
             var total = wins + losses;
-            if (total < 10) return null;
+            if (total < 30) return null;  // Minimum 30 paris pour significativite statistique
 
             return {
                 bets: total,
@@ -15382,7 +15382,7 @@
             }
 
             var total = wins + losses;
-            if (total < 20) return null;  // Minimum 20 paris pour fiabilite
+            if (total < 50) return null;  // Minimum 50 paris sur periode complete
 
             return {
                 niche: niche,
@@ -15455,13 +15455,13 @@
 
                 var data = n.circuit === 'atp' ? btDataATP : btDataWTA;
 
-                // ETAPE 1: Test sur periode TRAIN (2015-2021)
+                // ETAPE 1: Test sur periode TRAIN (2015-2021) - minimum 30 paris, ROI > 5%
                 var trainResult = backtestNichePeriod(n, data, trainStart, trainEnd);
-                if (!trainResult || trainResult.roi <= 0) continue;  // Pas rentable sur train = rejet
+                if (!trainResult || trainResult.roi <= 5) continue;
 
-                // ETAPE 2: Test sur periode TEST (2022-2025)
+                // ETAPE 2: Test sur periode TEST (2022-2025) - minimum 30 paris, ROI > 5%
                 var testResult = backtestNichePeriod(n, data, testStart, testEnd);
-                if (!testResult || testResult.roi <= 0) continue;  // Pas rentable sur test = rejet
+                if (!testResult || testResult.roi <= 5) continue;
 
                 // ETAPE 3: La niche est validee! Calculer le ROI sur periode complete
                 var fullResult = backtestNicheForPortfolio(n, data, fullStart, fullEnd);
