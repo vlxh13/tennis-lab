@@ -15872,7 +15872,15 @@
                             console.log('[calcDD] Niche non trouvee dans userNiches:', nicheInfo.name);
                         }
                     }
+                    if (debugFirstCombo) {
+                        console.log('[calcDD] Total bets collectes:', allBets.length);
+                        if (allBets.length > 0) {
+                            console.log('[calcDD] Premier pari:', allBets[0]);
+                            console.log('[calcDD] Dernier pari:', allBets[allBets.length - 1]);
+                        }
+                    }
                     debugFirstCombo = false;
+
                     // Trier par date
                     allBets.sort(function(a, b) { return a.date.localeCompare(b.date); });
 
