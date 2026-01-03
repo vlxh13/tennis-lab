@@ -15514,23 +15514,25 @@
             var targetPerMonth = targetPicks;
             var targetPerYear = targetPerMonth * 12;
 
-            // ======== PORTFOLIO 1: MAX ROI ========
-            // Prend les meilleures niches ROI jusqu'a atteindre le volume cible
+            // ======== PORTFOLIO 1: MAX ROI (Rentabilite pure) ========
+            // SEULEMENT les niches avec ROI >= 15% - peu importe le volume
             var pfMaxRoi = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max ROI', allNiches: nicheResults };
-            for (var i = 0; i < nicheResults.length && pfMaxRoi.totalBets / yearsCount < targetPerYear; i++) {
-                pfMaxRoi.niches.push(nicheResults[i]);
-                pfMaxRoi.totalBets += nicheResults[i].bets;
-                pfMaxRoi.totalProfit += nicheResults[i].profit;
+            var highRoiNiches = nicheResults.filter(function(n) { return n.roi >= 15; });
+            highRoiNiches.sort(function(a, b) { return b.roi - a.roi; });
+            for (var i = 0; i < highRoiNiches.length; i++) {
+                pfMaxRoi.niches.push(highRoiNiches[i]);
+                pfMaxRoi.totalBets += highRoiNiches[i].bets;
+                pfMaxRoi.totalProfit += highRoiNiches[i].profit;
             }
             pfMaxRoi.betsPerMonth = (pfMaxRoi.totalBets / yearsCount) / 12;
             pfMaxRoi.roi = pfMaxRoi.totalBets > 0 ? (pfMaxRoi.totalProfit / pfMaxRoi.totalBets) * 100 : 0;
 
-            // ======== PORTFOLIO 2: EQUILIBRE ========
-            // ROI >= 10%, trie par score equilibre (ROI * volume), jusqu'au volume cible
+            // ======== PORTFOLIO 2: EQUILIBRE (Cible volume avec bon ROI) ========
+            // Atteindre le volume cible avec les meilleures niches (ROI >= 5%)
             var pfBalanced = { niches: [], totalBets: 0, totalProfit: 0, name: 'Equilibre', allNiches: nicheResults };
-            var balancedNiches = nicheResults.filter(function(n) { return n.roi >= 10; });
-            // Score = ROI * sqrt(betsPerYear) pour equilibrer rentabilite et volume
-            balancedNiches.sort(function(a, b) { return (b.roi * Math.sqrt(b.betsPerYear)) - (a.roi * Math.sqrt(a.betsPerYear)); });
+            var balancedNiches = nicheResults.filter(function(n) { return n.roi >= 5; });
+            // Trier par ROI decroissant pour prendre les meilleurs d'abord
+            balancedNiches.sort(function(a, b) { return b.roi - a.roi; });
             for (var i = 0; i < balancedNiches.length && pfBalanced.totalBets / yearsCount < targetPerYear; i++) {
                 pfBalanced.niches.push(balancedNiches[i]);
                 pfBalanced.totalBets += balancedNiches[i].bets;
@@ -15539,12 +15541,12 @@
             pfBalanced.betsPerMonth = (pfBalanced.totalBets / yearsCount) / 12;
             pfBalanced.roi = pfBalanced.totalBets > 0 ? (pfBalanced.totalProfit / pfBalanced.totalBets) * 100 : 0;
 
-            // ======== PORTFOLIO 3: MAX REGULARITE ========
-            // ROI >= 5%, trie par volume decroissant, jusqu'au volume cible
-            var pfMaxVolume = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max Regularite', allNiches: nicheResults };
-            var volumeNiches = nicheResults.filter(function(n) { return n.roi >= 5; });
+            // ======== PORTFOLIO 3: MAX VOLUME (Regularite) ========
+            // TOUTES les niches avec ROI > 0 pour maximiser le volume
+            var pfMaxVolume = { niches: [], totalBets: 0, totalProfit: 0, name: 'Max Volume', allNiches: nicheResults };
+            var volumeNiches = nicheResults.filter(function(n) { return n.roi > 0; });
             volumeNiches.sort(function(a, b) { return b.betsPerYear - a.betsPerYear; });
-            for (var i = 0; i < volumeNiches.length && pfMaxVolume.totalBets / yearsCount < targetPerYear; i++) {
+            for (var i = 0; i < volumeNiches.length; i++) {
                 pfMaxVolume.niches.push(volumeNiches[i]);
                 pfMaxVolume.totalBets += volumeNiches[i].bets;
                 pfMaxVolume.totalProfit += volumeNiches[i].profit;
@@ -15604,9 +15606,9 @@
             var colors = ['var(--green)', 'var(--blue)', 'var(--purple)'];
             var icons = ['🏆', '⚖️', '📈'];
             var descriptions = [
-                'ROI maximum avec le moins de niches. Ideal si tu veux la meilleure rentabilite pure.',
-                'Equilibre entre ROI et volume. Bon compromis pour Blogabet.',
-                'Volume maximum avec ROI acceptable. Parfait pour la visibilite Blogabet.'
+                'Uniquement les niches ROI >= 15%. Moins de picks mais meilleure rentabilite.',
+                'Atteint ta cible de ' + targetPicks + ' picks/mois avec les meilleures niches (ROI >= 5%).',
+                'Toutes les niches rentables (ROI > 0%). Maximum de picks pour la visibilite.'
             ];
 
             var compHtml = '';
