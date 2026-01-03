@@ -15816,72 +15816,24 @@
 
                 console.log('[Optimizer] Demarrage avec', niches.length, 'niches, cible:', targetPicks, 'picks/mois');
 
-                // Calcul DD reel en fusionnant les paris chronologiquement
+                // Version simple - utilise stats pre-calculees, DD = max des DD individuels
                 function calcComboStats(combo) {
-                    var allBets = [];
+                    var totalBets = 0;
+                    var totalProfit = 0;
+                    var maxDD = 0;
 
-                    // Pour chaque niche de la combo, recuperer ses paris via processBacktestForCircuit
                     for (var i = 0; i < combo.length; i++) {
                         var n = combo[i];
-                        var circuit = n.niche.circuit;
-                        var data = circuit === 'atp' ? btDataATP : btDataWTA;
-
-                        // Creer une liste avec juste cette niche pour processBacktestForCircuit
-                        var nicheConfig = {
-                            cat: n.niche.cat,
-                            surf: n.niche.surf,
-                            rounds: n.niche.rounds,
-                            strat: n.niche.strat,
-                            min: n.niche.min,
-                            max: n.niche.max,
-                            name: n.name,
-                            on: true
-                        };
-
-                        // Extraire les paris pour cette niche
-                        var filtered = data.filter(function(m) { return m.year >= 2007 && m.year <= 2025; });
-                        var catKey = nicheConfig.cat.replace('Masters ', '').replace('WTA ', '').replace('Grand Slam', 'Grand');
-
-                        for (var j = 0; j < filtered.length; j++) {
-                            var m = filtered[j];
-                            if (!m.category || m.category.indexOf(catKey) < 0) continue;
-                            if (m.surface !== nicheConfig.surf) continue;
-                            if (nicheConfig.rounds.indexOf(m.round) === -1) continue;
-
-                            var dogOdds = Math.max(m.o1, m.o2);
-                            var favOdds = Math.min(m.o1, m.o2);
-                            var dogIsP1 = m.o1 > m.o2;
-
-                            var odds, won;
-                            if (nicheConfig.strat === 'underdog') {
-                                odds = dogOdds; won = dogIsP1;
-                            } else {
-                                odds = favOdds; won = !dogIsP1;
-                            }
-
-                            if (odds >= nicheConfig.min && odds <= nicheConfig.max) {
-                                allBets.push({ date: m.date, pnl: won ? odds - 1 : -1 });
-                            }
-                        }
+                        totalBets += n.bets;
+                        totalProfit += n.profit;
+                        // DD = max des DD individuels (approximation realiste)
+                        if ((n.maxDD || 0) > maxDD) maxDD = n.maxDD;
                     }
 
-                    // Trier par date
-                    allBets.sort(function(a, b) { return a.date.localeCompare(b.date); });
+                    var roi = totalBets > 0 ? (totalProfit / totalBets) * 100 : 0;
+                    var betsPerMonth = totalBets / (18 * 12);
 
-                    // Calculer DD reel sur la courbe combinee
-                    var cum = 0, peak = 0, maxDD = 0, totalProfit = 0;
-                    for (var i = 0; i < allBets.length; i++) {
-                        cum += allBets[i].pnl;
-                        if (cum > peak) peak = cum;
-                        var dd = peak - cum;
-                        if (dd > maxDD) maxDD = dd;
-                    }
-                    totalProfit = cum;
-
-                    var roi = allBets.length > 0 ? (totalProfit / allBets.length) * 100 : 0;
-                    var betsPerMonth = allBets.length / (18 * 12);
-
-                    return { bets: allBets.length, profit: totalProfit, roi: roi, maxDD: maxDD, betsPerMonth: betsPerMonth };
+                    return { bets: totalBets, profit: totalProfit, roi: roi, maxDD: maxDD, betsPerMonth: betsPerMonth };
                 }
 
                 // Generer des combinaisons intelligentes
