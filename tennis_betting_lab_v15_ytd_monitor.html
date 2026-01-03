@@ -15816,99 +15816,24 @@
 
                 console.log('[Optimizer] Demarrage avec', niches.length, 'niches, cible:', targetPicks, 'picks/mois');
 
-                // Fonction pour collecter les paris d'une niche
-                function getBetsForNiche(nicheData, niche, debug) {
-                    var n = niche;
-                    var results = [];
-                    var isUnderdog = n.strat === 'underdog' || n.strat === 'UND';
+                // Fonction simplifiee - utilise les stats deja calculees
+                function calcComboStats(combo) {
+                    var totalBets = 0;
+                    var totalProfit = 0;
+                    var maxDD = 0;
 
-                    if (debug) console.log('[getBets] Niche:', n.name, '| cat:', n.cat, '| catKey:', n.cat.replace('Masters ', '').replace('WTA ', 'W').replace('ATP ', '').replace('Grand Slam', 'Grand'), '| surf:', n.surf, '| rounds:', n.rounds, '| strat:', n.strat);
-                    if (debug) console.log('[getBets] Data length:', nicheData.length);
-                    // Log des categories uniques dans les donnees
-                    if (debug) {
-                        var cats = {};
-                        for (var x = 0; x < Math.min(nicheData.length, 5000); x++) {
-                            if (nicheData[x].category) cats[nicheData[x].category] = (cats[nicheData[x].category] || 0) + 1;
-                        }
-                        console.log('[getBets] Categories dans data:', Object.keys(cats));
-                    }
-
-                    var catMiss = 0, surfMiss = 0, roundMiss = 0, oddsMiss = 0;
-
-                    // Normaliser la categorie comme testComboV2
-                    var catKey = n.cat.replace('Masters ', '').replace('WTA ', 'W').replace('ATP ', '').replace('Grand Slam', 'Grand');
-
-                    for (var i = 0; i < nicheData.length; i++) {
-                        var m = nicheData[i];
-                        if (!m.category || m.category.indexOf(catKey) < 0) { catMiss++; continue; }
-                        if (m.surface !== n.surf) { surfMiss++; continue; }
-                        if (n.rounds.indexOf(m.round) === -1) { roundMiss++; continue; }
-
-                        var odds1 = parseFloat(m.o1);
-                        var odds2 = parseFloat(m.o2);
-                        if (isNaN(odds1) || isNaN(odds2) || odds1 <= 1 || odds2 <= 1) { oddsMiss++; continue; }
-
-                        var dominated = odds1 < odds2;
-                        var targetOdds = isUnderdog ? (dominated ? odds2 : odds1) : (dominated ? odds1 : odds2);
-                        if (targetOdds < n.min || targetOdds > n.max) { oddsMiss++; continue; }
-
-                        var win = isUnderdog ? !dominated : dominated;
-                        results.push({
-                            date: m.date,
-                            pnl: win ? (targetOdds - 1) : -1,
-                            niche: n.name
-                        });
-                    }
-                    if (debug) console.log('[getBets] Miss - cat:', catMiss, '| surf:', surfMiss, '| round:', roundMiss, '| odds:', oddsMiss, '| FOUND:', results.length);
-                    return results;
-                }
-
-                // Fonction pour calculer DD combine d'une combo
-                var debugFirstCombo = true;
-                function calcCombinedDD(combo, userNiches) {
-                    var allBets = [];
                     for (var i = 0; i < combo.length; i++) {
-                        var nicheInfo = combo[i];
-                        // Trouver les donnees de la niche
-                        var found = false;
-                        for (var j = 0; j < userNiches.length; j++) {
-                            if (userNiches[j].niche.name === nicheInfo.name) {
-                                var bets = getBetsForNiche(userNiches[j].data, userNiches[j].niche, debugFirstCombo && i === 0);
-                                allBets = allBets.concat(bets);
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (debugFirstCombo && !found) {
-                            console.log('[calcDD] Niche non trouvee dans userNiches:', nicheInfo.name);
-                        }
-                    }
-                    if (debugFirstCombo) {
-                        console.log('[calcDD] Total bets collectes:', allBets.length);
-                        if (allBets.length > 0) {
-                            console.log('[calcDD] Premier pari:', allBets[0]);
-                            console.log('[calcDD] Dernier pari:', allBets[allBets.length - 1]);
-                        }
-                    }
-                    debugFirstCombo = false;
-
-                    // Trier par date
-                    allBets.sort(function(a, b) { return a.date.localeCompare(b.date); });
-
-                    // Calculer DD
-                    var cum = 0, peak = 0, maxDD = 0;
-                    for (var i = 0; i < allBets.length; i++) {
-                        cum += allBets[i].pnl;
-                        if (cum > peak) peak = cum;
-                        var dd = peak - cum;
-                        if (dd > maxDD) maxDD = dd;
+                        var n = combo[i];
+                        totalBets += n.bets;
+                        totalProfit += n.profit;
+                        // DD combine = somme des DD (approximation pessimiste)
+                        maxDD += n.maxDD || 0;
                     }
 
-                    var totalProfit = cum;
-                    var roi = allBets.length > 0 ? (totalProfit / allBets.length) * 100 : 0;
-                    var betsPerMonth = allBets.length / (18 * 12); // 18 ans
+                    var roi = totalBets > 0 ? (totalProfit / totalBets) * 100 : 0;
+                    var betsPerMonth = totalBets / (18 * 12); // 18 ans de donnees
 
-                    return { bets: allBets.length, profit: totalProfit, roi: roi, maxDD: maxDD, betsPerMonth: betsPerMonth };
+                    return { bets: totalBets, profit: totalProfit, roi: roi, maxDD: maxDD, betsPerMonth: betsPerMonth };
                 }
 
                 // Generer des combinaisons intelligentes
@@ -15921,8 +15846,8 @@
                 var sortedByRoi = niches.slice().sort(function(a, b) { return b.roi - a.roi; });
                 for (var size = 3; size <= Math.min(n, 15); size++) {
                     var combo = sortedByRoi.slice(0, size);
-                    var stats = calcCombinedDD(combo, userNiches);
-                    if (stats.betsPerMonth >= targetPicks * 0.5) { // Au moins 50% de la cible
+                    var stats = calcComboStats(combo);
+                    if (stats.betsPerMonth >= targetPicks * 0.5) {
                         combos.push({ type: 'Max ROI', size: size, niches: combo, stats: stats });
                     }
                 }
@@ -15932,7 +15857,7 @@
                 var sortedByScore = niches.slice().sort(function(a, b) { return b.score - a.score; });
                 for (var size = 3; size <= Math.min(n, 15); size++) {
                     var combo = sortedByScore.slice(0, size);
-                    var stats = calcCombinedDD(combo, userNiches);
+                    var stats = calcComboStats(combo);
                     if (stats.betsPerMonth >= targetPicks * 0.5) {
                         combos.push({ type: 'Max Score', size: size, niches: combo, stats: stats });
                     }
@@ -15947,7 +15872,7 @@
                 });
                 for (var size = 3; size <= Math.min(n, 15); size++) {
                     var combo = sortedByRatio.slice(0, size);
-                    var stats = calcCombinedDD(combo, userNiches);
+                    var stats = calcComboStats(combo);
                     if (stats.betsPerMonth >= targetPicks * 0.5) {
                         combos.push({ type: 'Min DD/ROI', size: size, niches: combo, stats: stats });
                     }
