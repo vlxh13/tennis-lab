@@ -296,6 +296,14 @@
         <div class="card">
             <div class="card-title">Nouveau Pari</div>
 
+            <!-- Import Telegram -->
+            <div class="telegram-import" style="margin-bottom:1rem">
+                <textarea id="telegramInput" placeholder="Colle ton message Telegram ici..." rows="3" style="width:100%;padding:.5rem;font-size:.8rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);resize:none"></textarea>
+                <button class="btn btn-sm" style="background:var(--purple);color:#fff;margin-top:.5rem;width:100%" onclick="parseTelegram()">📥 Importer depuis Telegram</button>
+            </div>
+
+            <div style="text-align:center;color:var(--muted);font-size:.7rem;margin-bottom:.75rem">— ou remplir manuellement —</div>
+
             <div class="form-row two">
                 <div class="form-group autocomplete-wrapper">
                     <label>Joueur 1</label>
@@ -681,6 +689,143 @@
             detailInput.placeholder = placeholders[type] || '';
         }
 
+        // ==================== TELEGRAM PARSER ====================
+        function parseTelegram() {
+            const raw = document.getElementById('telegramInput').value.trim();
+            if (!raw) {
+                alert('Colle un message Telegram d\'abord');
+                return;
+            }
+
+            // Parse each line
+            const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+            let match = '', bet = '', odd = '', stake = '';
+
+            lines.forEach(line => {
+                if (line.startsWith('Match:')) {
+                    match = line.replace('Match:', '').trim();
+                } else if (line.startsWith('Bet:')) {
+                    bet = line.replace('Bet:', '').trim();
+                } else if (line.startsWith('Odd:')) {
+                    odd = line.replace('Odd:', '').trim();
+                } else if (line.startsWith('Stake:')) {
+                    stake = line.replace('Stake:', '').trim();
+                }
+            });
+
+            // Parse players from match
+            const players = match.split('/').map(p => p.trim());
+            const j1 = players[0] || '';
+            const j2 = players[1] || '';
+
+            // Parse stake (e.g., "0.5u" -> 0.5)
+            const unitsMatch = stake.match(/([\d.]+)u/i);
+            const units = unitsMatch ? parseFloat(unitsMatch[1]) : 1;
+
+            // Parse bet type and detail
+            let type = 'autre';
+            let detail = '';
+            let betLower = bet.toLowerCase();
+
+            if (betLower.includes('hdp') || betLower.includes('handicap')) {
+                // Handicap bet - extract player and value
+                // Format: "Cobolli F. HDP -2 games" or "Player HDP +3.5 sets"
+                if (betLower.includes('game')) {
+                    type = 'handi_jeux';
+                } else if (betLower.includes('set')) {
+                    type = 'handi_sets';
+                } else {
+                    type = 'handi_jeux'; // default to games
+                }
+                // Extract the handicap value (e.g., -2, +3.5)
+                const hdpMatch = bet.match(/([+-]?\d+\.?\d*)\s*(game|set|$)/i);
+                if (hdpMatch) {
+                    detail = hdpMatch[1];
+                }
+                // Check which player the handicap is for
+                if (j1 && bet.toLowerCase().includes(j1.toLowerCase().split(' ')[0])) {
+                    detail = j1.split(' ')[0] + ' ' + detail;
+                } else if (j2 && bet.toLowerCase().includes(j2.toLowerCase().split(' ')[0])) {
+                    detail = j2.split(' ')[0] + ' ' + detail;
+                }
+            } else if (betLower.includes('over')) {
+                if (betLower.includes('set')) {
+                    type = 'over_sets';
+                } else {
+                    type = 'over_jeux';
+                }
+                const numMatch = bet.match(/([\d.]+)/);
+                if (numMatch) detail = numMatch[1];
+            } else if (betLower.includes('under')) {
+                if (betLower.includes('set')) {
+                    type = 'under_sets';
+                } else {
+                    type = 'under_jeux';
+                }
+                const numMatch = bet.match(/([\d.]+)/);
+                if (numMatch) detail = numMatch[1];
+            } else if (j1 && (betLower.includes(j1.toLowerCase().split(' ')[0]) || betLower.includes('winner'))) {
+                // Check if it's J1 or J2 winning
+                if (j2 && betLower.includes(j2.toLowerCase().split(' ')[0])) {
+                    type = 'j2';
+                } else {
+                    type = 'j1';
+                }
+            }
+
+            // Fill the form
+            document.getElementById('addJ1').value = j1;
+            document.getElementById('addJ2').value = j2;
+            document.getElementById('addType').value = type;
+            document.getElementById('addDetail').value = detail;
+
+            // Set units in dropdown (find closest match)
+            const unitsSelect = document.getElementById('addUnits');
+            const unitOptions = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2'];
+            const closest = unitOptions.reduce((prev, curr) =>
+                Math.abs(parseFloat(curr) - units) < Math.abs(parseFloat(prev) - units) ? curr : prev
+            );
+            unitsSelect.value = closest;
+
+            // Pre-fill odds but highlight for confirmation
+            const oddsInput = document.getElementById('addOdds');
+            oddsInput.value = odd;
+            oddsInput.style.border = '2px solid var(--yellow)';
+            oddsInput.style.background = 'rgba(234, 179, 8, 0.1)';
+
+            // Update mise preview
+            updateMisePreview();
+            onTypeChange();
+
+            // Clear telegram input
+            document.getElementById('telegramInput').value = '';
+
+            // Focus on odds for confirmation
+            oddsInput.focus();
+            oddsInput.select();
+
+            // Show confirmation message
+            const confirmMsg = document.createElement('div');
+            confirmMsg.id = 'telegramConfirm';
+            confirmMsg.style.cssText = 'background:var(--yellow);color:#000;padding:.5rem;border-radius:6px;text-align:center;font-size:.8rem;font-weight:600;margin-bottom:.75rem';
+            confirmMsg.textContent = '⚠️ Confirme la cote prise puis clique "Ajouter"';
+
+            const existingConfirm = document.getElementById('telegramConfirm');
+            if (existingConfirm) existingConfirm.remove();
+
+            const telegramSection = document.querySelector('.telegram-import');
+            telegramSection.insertAdjacentElement('afterend', confirmMsg);
+
+            // Remove highlight when user changes odds
+            oddsInput.addEventListener('input', function onOddsChange() {
+                oddsInput.style.border = '1px solid var(--border)';
+                oddsInput.style.background = 'var(--bg)';
+                const msg = document.getElementById('telegramConfirm');
+                if (msg) msg.remove();
+                oddsInput.removeEventListener('input', onOddsChange);
+            }, { once: true });
+        }
+
         // ==================== ADD BET ====================
         function addBet() {
             const j1 = document.getElementById('addJ1').value.trim();
@@ -725,6 +870,15 @@
             };
 
             state.pending.push(bet);
+
+            // Clean up telegram confirm message if present
+            const telegramConfirm = document.getElementById('telegramConfirm');
+            if (telegramConfirm) telegramConfirm.remove();
+
+            // Reset odds input style
+            const oddsInput = document.getElementById('addOdds');
+            oddsInput.style.border = '1px solid var(--border)';
+            oddsInput.style.background = 'var(--bg)';
 
             // Save players for autocomplete
             if (!state.players.includes(j1)) state.players.push(j1);
