@@ -15788,12 +15788,21 @@
         // Trouve les meilleures combos de niches selon ROI/Volume/DD
         // ============================================
         async function optimizeCombos() {
+            console.log('[Optimizer] Fonction appelee');
+            console.log('[Optimizer] pfNicheResults:', window.pfNicheResults ? window.pfNicheResults.length : 'null');
+            console.log('[Optimizer] pfUserNiches:', window.pfUserNiches ? window.pfUserNiches.length : 'null');
+
             if (!window.pfNicheResults || window.pfNicheResults.length === 0) {
                 showToast('Lance d\'abord le calcul Portfolio', 'warning');
                 return;
             }
 
             var container = document.getElementById('pfOptResults');
+            if (!container) {
+                console.error('[Optimizer] Container pfOptResults non trouve!');
+                showToast('Erreur: container non trouve', 'error');
+                return;
+            }
             container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--muted)">⏳ Calcul des combinaisons optimales...</div>';
 
             await new Promise(function(r) { setTimeout(r, 100); });
@@ -15809,16 +15818,18 @@
                 function getBetsForNiche(nicheData, niche) {
                     var n = niche;
                     var results = [];
+                    var isUnderdog = n.strat === 'underdog' || n.strat === 'UND';
+
                     for (var i = 0; i < nicheData.length; i++) {
                         var m = nicheData[i];
                         if (m.category !== n.cat || m.surface !== n.surf) continue;
                         if (n.rounds.indexOf(m.round) === -1) continue;
 
                         var dominated = m.odds_player1 < m.odds_player2;
-                        var targetOdds = n.strat === 'UND' ? (dominated ? m.odds_player2 : m.odds_player1) : (dominated ? m.odds_player1 : m.odds_player2);
+                        var targetOdds = isUnderdog ? (dominated ? m.odds_player2 : m.odds_player1) : (dominated ? m.odds_player1 : m.odds_player2);
                         if (targetOdds < n.min || targetOdds > n.max) continue;
 
-                        var win = n.strat === 'UND' ? !dominated : dominated;
+                        var win = isUnderdog ? !dominated : dominated;
                         results.push({
                             date: m.date,
                             pnl: win ? (targetOdds - 1) : -1,
@@ -15864,8 +15875,10 @@
                 // Generer des combinaisons intelligentes
                 var combos = [];
                 var n = niches.length;
+                console.log('[Optimizer] Nombre de niches:', n);
 
                 // Strategie 1: Top N par ROI (greedy jusqu'a la cible)
+                console.log('[Optimizer] Strategie 1: Max ROI...');
                 var sortedByRoi = niches.slice().sort(function(a, b) { return b.roi - a.roi; });
                 for (var size = 3; size <= Math.min(n, 15); size++) {
                     var combo = sortedByRoi.slice(0, size);
@@ -15876,6 +15889,7 @@
                 }
 
                 // Strategie 2: Top N par Score
+                console.log('[Optimizer] Strategie 2: Max Score...');
                 var sortedByScore = niches.slice().sort(function(a, b) { return b.score - a.score; });
                 for (var size = 3; size <= Math.min(n, 15); size++) {
                     var combo = sortedByScore.slice(0, size);
@@ -15886,6 +15900,7 @@
                 }
 
                 // Strategie 3: Meilleur ratio ROI/DD
+                console.log('[Optimizer] Strategie 3: Min DD/ROI...');
                 var sortedByRatio = niches.slice().sort(function(a, b) {
                     var ratioA = a.maxDD > 0 ? a.roi / a.maxDD : a.roi;
                     var ratioB = b.maxDD > 0 ? b.roi / b.maxDD : b.roi;
