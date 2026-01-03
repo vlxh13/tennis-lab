@@ -15232,31 +15232,51 @@
             document.getElementById('pfCircuitBoth').classList.toggle('active', c === 'both');
         }
 
-        // Liste de toutes les niches possibles a tester
-        var PF_ALL_NICHES = [
-            // ATP
-            { circuit: 'atp', cat: 'Grand Slam', surf: 'Hard', rounds: ['QF'], strat: 'underdog', min: 2.0, max: 3.0 },
-            { circuit: 'atp', cat: 'Grand Slam', surf: 'Clay', rounds: ['R32'], strat: 'underdog', min: 2.0, max: 3.0 },
-            { circuit: 'atp', cat: 'Grand Slam', surf: 'Hard', rounds: ['R64'], strat: 'underdog', min: 2.5, max: 3.5 },
-            { circuit: 'atp', cat: 'Masters 1000', surf: 'Hard', rounds: ['SF'], strat: 'underdog', min: 3.0, max: 4.0 },
-            { circuit: 'atp', cat: 'Masters 1000', surf: 'Hard', rounds: ['F'], strat: 'underdog', min: 2.0, max: 3.0 },
-            { circuit: 'atp', cat: 'Masters 1000', surf: 'Clay', rounds: ['R16'], strat: 'underdog', min: 2.5, max: 3.5 },
-            { circuit: 'atp', cat: 'ATP 500', surf: 'Grass', rounds: ['SF', 'F'], strat: 'underdog', min: 2.0, max: 3.0 },
-            { circuit: 'atp', cat: 'ATP 500', surf: 'Hard', rounds: ['QF'], strat: 'underdog', min: 1.5, max: 2.5 },
-            { circuit: 'atp', cat: 'ATP 500', surf: 'Clay', rounds: ['R32'], strat: 'favorite', min: 1.5, max: 2.0 },
-            { circuit: 'atp', cat: 'ATP 250', surf: 'Hard', rounds: ['F'], strat: 'underdog', min: 2.0, max: 2.5 },
-            { circuit: 'atp', cat: 'ATP 250', surf: 'Clay', rounds: ['SF', 'F'], strat: 'underdog', min: 2.5, max: 3.5 },
-            // WTA
-            { circuit: 'wta', cat: 'Grand Slam', surf: 'Hard', rounds: ['R16'], strat: 'underdog', min: 2.5, max: 3.5 },
-            { circuit: 'wta', cat: 'Grand Slam', surf: 'Hard', rounds: ['QF', 'SF'], strat: 'underdog', min: 1.5, max: 2.5 },
-            { circuit: 'wta', cat: 'Grand Slam', surf: 'Clay', rounds: ['R16', 'QF'], strat: 'underdog', min: 1.5, max: 2.5 },
-            { circuit: 'wta', cat: 'WTA 1000', surf: 'Hard', rounds: ['R16'], strat: 'underdog', min: 2.5, max: 3.0 },
-            { circuit: 'wta', cat: 'WTA 1000', surf: 'Hard', rounds: ['QF'], strat: 'underdog', min: 1.5, max: 2.5 },
-            { circuit: 'wta', cat: 'WTA 1000', surf: 'Clay', rounds: ['R32'], strat: 'underdog', min: 3.0, max: 4.0 },
-            { circuit: 'wta', cat: 'WTA 500', surf: 'Hard', rounds: ['R16'], strat: 'underdog', min: 2.5, max: 3.0 },
-            { circuit: 'wta', cat: 'WTA 250', surf: 'Grass', rounds: ['QF', 'SF'], strat: 'underdog', min: 2.5, max: 3.5 },
-            { circuit: 'wta', cat: 'WTA 250', surf: 'Clay', rounds: ['SF'], strat: 'underdog', min: 2.0, max: 3.0 },
-        ];
+        // Generateur dynamique de toutes les niches possibles
+        function generateAllNiches(circuit) {
+            var niches = [];
+            var cats_atp = ['Grand Slam', 'Masters 1000', 'ATP 500', 'ATP 250'];
+            var cats_wta = ['Grand Slam', 'WTA 1000', 'WTA 500', 'WTA 250'];
+            var surfaces = ['Hard', 'Clay', 'Grass'];
+            var rounds = ['F', 'SF', 'QF', 'R16', 'R32', 'R64'];
+            var strategies = ['underdog', 'favorite'];
+            var oddsRanges = [
+                { min: 1.3, max: 1.6 },
+                { min: 1.5, max: 2.0 },
+                { min: 2.0, max: 2.5 },
+                { min: 2.5, max: 3.0 },
+                { min: 3.0, max: 4.0 },
+                { min: 4.0, max: 6.0 }
+            ];
+
+            var circuits = [];
+            if (circuit === 'atp' || circuit === 'both') circuits.push({ name: 'atp', cats: cats_atp });
+            if (circuit === 'wta' || circuit === 'both') circuits.push({ name: 'wta', cats: cats_wta });
+
+            for (var c = 0; c < circuits.length; c++) {
+                var circ = circuits[c];
+                for (var cat = 0; cat < circ.cats.length; cat++) {
+                    for (var surf = 0; surf < surfaces.length; surf++) {
+                        for (var rnd = 0; rnd < rounds.length; rnd++) {
+                            for (var strat = 0; strat < strategies.length; strat++) {
+                                for (var odds = 0; odds < oddsRanges.length; odds++) {
+                                    niches.push({
+                                        circuit: circ.name,
+                                        cat: circ.cats[cat],
+                                        surf: surfaces[surf],
+                                        rounds: [rounds[rnd]],
+                                        strat: strategies[strat],
+                                        min: oddsRanges[odds].min,
+                                        max: oddsRanges[odds].max
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return niches;
+        }
 
         // Backtester une niche sur les donnees
         function backtestNicheForPortfolio(niche, data, yearStart, yearEnd) {
@@ -15299,7 +15319,7 @@
             }
 
             var total = wins + losses;
-            if (total < 5) return null;  // Pas assez de donnees
+            if (total < 20) return null;  // Minimum 20 paris pour fiabilite
 
             return {
                 niche: niche,
@@ -15340,29 +15360,34 @@
                 // Donner un court delai pour l'UI
                 await new Promise(function(r) { setTimeout(r, 50); });
 
-            var yearStart = 2020, yearEnd = 2025;
+            var yearStart = 2015, yearEnd = 2025;
             var yearsCount = yearEnd - yearStart + 1;
 
-            // Filtrer les niches selon le circuit
-            var nichesToTest = PF_ALL_NICHES.filter(function(n) {
-                if (pfCircuit === 'both') return true;
-                return n.circuit === pfCircuit;
-            });
+            // Generer toutes les niches dynamiquement
+            var nichesToTest = generateAllNiches(pfCircuit);
+            console.log('[Portfolio] Niches generees:', nichesToTest.length);
 
             // Backtester toutes les niches
             var nicheResults = [];
-            for (var i = 0; i < nichesToTest.length; i++) {
+            var totalNiches = nichesToTest.length;
+            for (var i = 0; i < totalNiches; i++) {
                 var n = nichesToTest[i];
-                document.getElementById('pfLoadingProgress').textContent = 'Analyse niche ' + (i + 1) + '/' + nichesToTest.length;
-                await new Promise(function(r) { setTimeout(r, 10); });
+
+                // Mise a jour UI tous les 50 niches pour performance
+                if (i % 50 === 0) {
+                    var pct = Math.round((i / totalNiches) * 100);
+                    document.getElementById('pfLoadingProgress').textContent = 'Analyse: ' + pct + '% (' + i + '/' + totalNiches + ' niches)';
+                    await new Promise(function(r) { setTimeout(r, 1); });
+                }
 
                 var data = n.circuit === 'atp' ? btDataATP : btDataWTA;
                 var result = backtestNicheForPortfolio(n, data, yearStart, yearEnd);
                 if (result && result.roi > 0) {  // Garder uniquement les niches rentables
-                    result.name = (n.strat === 'underdog' ? 'UND' : 'FAV') + ' ' + n.cat + ' ' + n.surf + ' ' + n.rounds.join('+') + ' @' + n.min + '-' + n.max;
+                    result.name = '[' + n.circuit.toUpperCase() + '] ' + (n.strat === 'underdog' ? 'UND' : 'FAV') + ' ' + n.cat + ' ' + n.surf + ' ' + n.rounds.join('+') + ' @' + n.min + '-' + n.max;
                     nicheResults.push(result);
                 }
             }
+            document.getElementById('pfLoadingProgress').textContent = 'Tri des resultats...';
 
             // Trier par ROI decroissant
             nicheResults.sort(function(a, b) { return b.roi - a.roi; });
