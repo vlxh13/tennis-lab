@@ -764,13 +764,20 @@
                 }
                 const numMatch = bet.match(/([\d.]+)/);
                 if (numMatch) detail = numMatch[1];
-            } else if (j1 && (betLower.includes(j1.toLowerCase().split(' ')[0]) || betLower.includes('winner'))) {
-                // Check if it's J1 or J2 winning
-                if (j2 && betLower.includes(j2.toLowerCase().split(' ')[0])) {
+            } else {
+                // Check for match winner bet (J1 or J2)
+                const j1Name = j1 ? j1.toLowerCase().split(' ')[0] : '';
+                const j2Name = j2 ? j2.toLowerCase().split(' ')[0] : '';
+                const hasJ1 = j1Name && betLower.includes(j1Name);
+                const hasJ2 = j2Name && betLower.includes(j2Name);
+                const hasWin = betLower.includes('win') || betLower.includes('winner') || betLower.includes('ml');
+
+                if (hasJ2 && (hasWin || !hasJ1)) {
                     type = 'j2';
-                } else {
+                } else if (hasJ1 || hasWin) {
                     type = 'j1';
                 }
+                // else stays 'autre'
             }
 
             // Fill the form
