@@ -15501,7 +15501,7 @@
                         isValidated: trainROI > 0 && testROI > 0
                     });
 
-                    console.log('[Portfolio] Niche:', n.name, '| Bets:', rFull.bets, '| ROI:', rFull.roi.toFixed(1) + '%', '| Train:', trainROI.toFixed(1) + '%', '| Test:', testROI.toFixed(1) + '%');
+                    console.log('[Portfolio] Niche:', n.name, '| Bets:', rFull.bets, '| ROI:', rFull.roi.toFixed(1) + '%', '| DD:', rFull.maxDD, '| Train:', trainROI.toFixed(1) + '%', '| Test:', testROI.toFixed(1) + '%');
                 }
 
                 console.log('[Portfolio] === RESUME ===');
@@ -15674,7 +15674,7 @@
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center">' + picksPerMonth.toFixed(1) + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + roiColor + ';font-weight:600">+' + n.roi.toFixed(0) + '%</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + roi3Color + ';font-weight:600">' + roi3Display + '</td>';
-                compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:var(--red)">-' + n.maxDD.toFixed(1) + '</td>';
+                compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:var(--red)">-' + (n.maxDD ? n.maxDD.toFixed(1) : '0') + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + scoreColor + ';font-weight:600">' + n.score + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:var(--blue);font-weight:600">' + cumPicksMonth.toFixed(1) + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + (cumRoi >= 15 ? 'var(--green)' : cumRoi >= 10 ? 'var(--blue)' : 'var(--yellow)') + ';font-weight:600">+' + cumRoi.toFixed(1) + '%</td>';
