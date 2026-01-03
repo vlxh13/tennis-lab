@@ -15232,21 +15232,36 @@
             document.getElementById('pfCircuitBoth').classList.toggle('active', c === 'both');
         }
 
-        // Generateur dynamique de toutes les niches possibles
+        // Generateur dynamique de toutes les niches possibles (version exhaustive)
         function generateAllNiches(circuit) {
             var niches = [];
             var cats_atp = ['Grand Slam', 'Masters 1000', 'ATP 500', 'ATP 250'];
             var cats_wta = ['Grand Slam', 'WTA 1000', 'WTA 500', 'WTA 250'];
             var surfaces = ['Hard', 'Clay', 'Grass'];
-            var rounds = ['F', 'SF', 'QF', 'R16', 'R32', 'R64'];
             var strategies = ['underdog', 'favorite'];
+
+            // Rounds individuels et combinaisons utiles
+            var roundCombos = [
+                ['F'], ['SF'], ['QF'], ['R16'], ['R32'], ['R64'],
+                ['F', 'SF'], ['SF', 'QF'], ['QF', 'R16'], ['R16', 'R32'], ['R32', 'R64'],
+                ['F', 'SF', 'QF'], ['QF', 'R16', 'R32'], ['R16', 'R32', 'R64'],
+                ['F', 'SF', 'QF', 'R16']
+            ];
+
+            // Ranges de cotes plus fines (par pas de 0.5)
             var oddsRanges = [
-                { min: 1.3, max: 1.6 },
+                { min: 1.2, max: 1.5 },
                 { min: 1.5, max: 2.0 },
                 { min: 2.0, max: 2.5 },
                 { min: 2.5, max: 3.0 },
-                { min: 3.0, max: 4.0 },
-                { min: 4.0, max: 6.0 }
+                { min: 3.0, max: 3.5 },
+                { min: 3.5, max: 4.0 },
+                { min: 4.0, max: 5.0 },
+                { min: 5.0, max: 7.0 },
+                { min: 1.5, max: 2.5 },
+                { min: 2.0, max: 3.0 },
+                { min: 2.5, max: 3.5 },
+                { min: 3.0, max: 4.0 }
             ];
 
             var circuits = [];
@@ -15257,14 +15272,14 @@
                 var circ = circuits[c];
                 for (var cat = 0; cat < circ.cats.length; cat++) {
                     for (var surf = 0; surf < surfaces.length; surf++) {
-                        for (var rnd = 0; rnd < rounds.length; rnd++) {
+                        for (var rnd = 0; rnd < roundCombos.length; rnd++) {
                             for (var strat = 0; strat < strategies.length; strat++) {
                                 for (var odds = 0; odds < oddsRanges.length; odds++) {
                                     niches.push({
                                         circuit: circ.name,
                                         cat: circ.cats[cat],
                                         surf: surfaces[surf],
-                                        rounds: [rounds[rnd]],
+                                        rounds: roundCombos[rnd],
                                         strat: strategies[strat],
                                         min: oddsRanges[odds].min,
                                         max: oddsRanges[odds].max
@@ -15276,6 +15291,54 @@
                 }
             }
             return niches;
+        }
+
+        // Backtester une niche sur une periode donnee
+        function backtestNichePeriod(niche, data, yearStart, yearEnd) {
+            if (!data || data.length === 0) return null;
+
+            var filtered = data.filter(function(m) { return m.year >= yearStart && m.year <= yearEnd; });
+            var wins = 0, losses = 0, profit = 0;
+
+            for (var i = 0; i < filtered.length; i++) {
+                var m = filtered[i];
+                if (m.category !== niche.cat) continue;
+                if (m.surface !== niche.surf) continue;
+                if (niche.rounds.indexOf(m.round) === -1) continue;
+
+                var dogOdds = Math.max(m.o1, m.o2);
+                var favOdds = Math.min(m.o1, m.o2);
+                var dogIsP1 = m.o1 > m.o2;
+
+                var odds, won;
+                if (niche.strat === 'underdog') {
+                    odds = dogOdds;
+                    won = dogIsP1;
+                } else {
+                    odds = favOdds;
+                    won = !dogIsP1;
+                }
+
+                if (odds >= niche.min && odds <= niche.max) {
+                    if (won) {
+                        wins++;
+                        profit += odds - 1;
+                    } else {
+                        losses++;
+                        profit -= 1;
+                    }
+                }
+            }
+
+            var total = wins + losses;
+            if (total < 10) return null;
+
+            return {
+                bets: total,
+                wins: wins,
+                profit: profit,
+                roi: (profit / total) * 100
+            };
         }
 
         // Backtester une niche sur les donnees
@@ -15360,34 +15423,52 @@
                 // Donner un court delai pour l'UI
                 await new Promise(function(r) { setTimeout(r, 50); });
 
-            var yearStart = 2015, yearEnd = 2025;
-            var yearsCount = yearEnd - yearStart + 1;
+            // Periodes pour validation train/test (elimine l'overfitting)
+            var trainStart = 2015, trainEnd = 2021;  // 7 ans pour entrainer
+            var testStart = 2022, testEnd = 2025;    // 4 ans pour valider
+            var fullStart = 2015, fullEnd = 2025;    // Periode complete pour ROI final
+            var yearsCount = fullEnd - fullStart + 1;
 
             // Generer toutes les niches dynamiquement
             var nichesToTest = generateAllNiches(pfCircuit);
             console.log('[Portfolio] Niches generees:', nichesToTest.length);
 
-            // Backtester toutes les niches
+            // Backtester toutes les niches avec validation train/test
             var nicheResults = [];
             var totalNiches = nichesToTest.length;
+            var validatedCount = 0;
+
             for (var i = 0; i < totalNiches; i++) {
                 var n = nichesToTest[i];
 
-                // Mise a jour UI tous les 50 niches pour performance
-                if (i % 50 === 0) {
+                // Mise a jour UI tous les 100 niches pour performance
+                if (i % 100 === 0) {
                     var pct = Math.round((i / totalNiches) * 100);
-                    document.getElementById('pfLoadingProgress').textContent = 'Analyse: ' + pct + '% (' + i + '/' + totalNiches + ' niches)';
+                    document.getElementById('pfLoadingProgress').textContent = 'Scan: ' + pct + '% (' + i + '/' + totalNiches + ') - Validees: ' + validatedCount;
                     await new Promise(function(r) { setTimeout(r, 1); });
                 }
 
                 var data = n.circuit === 'atp' ? btDataATP : btDataWTA;
-                var result = backtestNicheForPortfolio(n, data, yearStart, yearEnd);
-                if (result && result.roi > 0) {  // Garder uniquement les niches rentables
-                    result.name = '[' + n.circuit.toUpperCase() + '] ' + (n.strat === 'underdog' ? 'UND' : 'FAV') + ' ' + n.cat + ' ' + n.surf + ' ' + n.rounds.join('+') + ' @' + n.min + '-' + n.max;
-                    nicheResults.push(result);
+
+                // ETAPE 1: Test sur periode TRAIN (2015-2021)
+                var trainResult = backtestNichePeriod(n, data, trainStart, trainEnd);
+                if (!trainResult || trainResult.roi <= 0) continue;  // Pas rentable sur train = rejet
+
+                // ETAPE 2: Test sur periode TEST (2022-2025)
+                var testResult = backtestNichePeriod(n, data, testStart, testEnd);
+                if (!testResult || testResult.roi <= 0) continue;  // Pas rentable sur test = rejet
+
+                // ETAPE 3: La niche est validee! Calculer le ROI sur periode complete
+                var fullResult = backtestNicheForPortfolio(n, data, fullStart, fullEnd);
+                if (fullResult && fullResult.roi > 0) {
+                    fullResult.name = '[' + n.circuit.toUpperCase() + '] ' + (n.strat === 'underdog' ? 'UND' : 'FAV') + ' ' + n.cat + ' ' + n.surf + ' ' + n.rounds.join('+') + ' @' + n.min + '-' + n.max;
+                    fullResult.trainROI = trainResult.roi;
+                    fullResult.testROI = testResult.roi;
+                    nicheResults.push(fullResult);
+                    validatedCount++;
                 }
             }
-            document.getElementById('pfLoadingProgress').textContent = 'Tri des resultats...';
+            document.getElementById('pfLoadingProgress').textContent = 'Tri des ' + validatedCount + ' niches validees...';
 
             // Trier par ROI decroissant
             nicheResults.sort(function(a, b) { return b.roi - a.roi; });
@@ -15439,10 +15520,13 @@
             document.getElementById('pfResults').style.display = 'block';
 
             // Afficher le resume
-            var summaryHtml = '<div style="display:flex;gap:1rem;flex-wrap:wrap">';
-            summaryHtml += '<div><strong>Niches testees:</strong> ' + nichesToTest.length + '</div>';
-            summaryHtml += '<div><strong>Niches rentables:</strong> ' + nicheResults.length + '</div>';
-            summaryHtml += '<div><strong>Objectif:</strong> ~' + targetPicks + ' picks/mois</div>';
+            var summaryHtml = '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(34,197,94,0.1);border-radius:6px;font-size:.75rem">';
+            summaryHtml += '<strong>Validation Train/Test:</strong> Niches rentables sur 2015-2021 <u>ET</u> 2022-2025';
+            summaryHtml += '</div>';
+            summaryHtml += '<div style="display:flex;gap:1rem;flex-wrap:wrap">';
+            summaryHtml += '<div><strong>Combinaisons testees:</strong> ' + totalNiches.toLocaleString() + '</div>';
+            summaryHtml += '<div><strong>Niches validees:</strong> ' + nicheResults.length + '</div>';
+            summaryHtml += '<div><strong>Taux validation:</strong> ' + (nicheResults.length / totalNiches * 100).toFixed(1) + '%</div>';
             summaryHtml += '<div><strong>Circuit:</strong> ' + pfCircuit.toUpperCase() + '</div>';
             summaryHtml += '</div>';
             document.getElementById('pfSummary').innerHTML = summaryHtml;
