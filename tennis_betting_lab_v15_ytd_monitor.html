@@ -15490,6 +15490,7 @@
                         winrate: (rFull.wins / rFull.bets) * 100,
                         roi: rFull.roi,
                         profit: profit,
+                        maxDD: rFull.maxDD || 0,
                         trainROI: trainROI,
                         testROI: testROI,
                         trainBets: trainBets,
@@ -15636,16 +15637,17 @@
 
             // En-tete du tableau
             compHtml += '<div style="overflow-x:auto">';
-            compHtml += '<table style="width:100%;font-size:.65rem;border-collapse:collapse">';
+            compHtml += '<table style="width:100%;font-size:.6rem;border-collapse:collapse">';
             compHtml += '<thead><tr style="background:var(--bg);position:sticky;top:0">';
-            compHtml += '<th style="padding:.3rem;text-align:left;border-bottom:2px solid var(--border)">#</th>';
-            compHtml += '<th style="padding:.3rem;text-align:left;border-bottom:2px solid var(--border)">Niche</th>';
-            compHtml += '<th style="padding:.3rem;text-align:center;border-bottom:2px solid var(--border)">p/m</th>';
-            compHtml += '<th style="padding:.3rem;text-align:center;border-bottom:2px solid var(--border)" title="ROI depuis 2007">ROI Total</th>';
-            compHtml += '<th style="padding:.3rem;text-align:center;border-bottom:2px solid var(--border)" title="ROI 3 dernieres annees">ROI 3ans</th>';
-            compHtml += '<th style="padding:.3rem;text-align:center;border-bottom:2px solid var(--border)">Score</th>';
-            compHtml += '<th style="padding:.3rem;text-align:center;border-bottom:2px solid var(--border);color:var(--blue)" title="Cumul picks/mois">Σ p/m</th>';
-            compHtml += '<th style="padding:.3rem;text-align:center;border-bottom:2px solid var(--border);color:var(--blue)" title="ROI cumule">Σ ROI</th>';
+            compHtml += '<th style="padding:.25rem;text-align:left;border-bottom:2px solid var(--border)">#</th>';
+            compHtml += '<th style="padding:.25rem;text-align:left;border-bottom:2px solid var(--border)">Niche</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border)">p/m</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border)" title="ROI depuis 2007">ROI</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border)" title="ROI 3 dernieres annees">3ans</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border);color:var(--red)" title="Max Drawdown en unites">DD</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border)">Sc</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border);color:var(--blue)" title="Cumul picks/mois">Σp/m</th>';
+            compHtml += '<th style="padding:.25rem;text-align:center;border-bottom:2px solid var(--border);color:var(--blue)" title="ROI cumule">ΣROI</th>';
             compHtml += '</tr></thead><tbody>';
 
             for (var i = 0; i < nicheResults.length; i++) {
@@ -15672,6 +15674,7 @@
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center">' + picksPerMonth.toFixed(1) + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + roiColor + ';font-weight:600">+' + n.roi.toFixed(0) + '%</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + roi3Color + ';font-weight:600">' + roi3Display + '</td>';
+                compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:var(--red)">-' + n.maxDD.toFixed(1) + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + scoreColor + ';font-weight:600">' + n.score + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:var(--blue);font-weight:600">' + cumPicksMonth.toFixed(1) + '</td>';
                 compHtml += '<td style="padding:.3rem;border-bottom:1px solid var(--border);text-align:center;color:' + (cumRoi >= 15 ? 'var(--green)' : cumRoi >= 10 ? 'var(--blue)' : 'var(--yellow)') + ';font-weight:600">+' + cumRoi.toFixed(1) + '%</td>';
@@ -15679,7 +15682,7 @@
 
                 // Ajouter une ligne de separation apres la cible atteinte
                 if (isTargetLine) {
-                    compHtml += '<tr><td colspan="8" style="padding:.3rem;background:var(--green);color:#000;text-align:center;font-weight:700;font-size:.6rem">';
+                    compHtml += '<tr><td colspan="9" style="padding:.3rem;background:var(--green);color:#000;text-align:center;font-weight:700;font-size:.6rem">';
                     compHtml += '▲ CIBLE ' + targetPicks + ' p/m ATTEINTE (' + (i + 1) + ' niches, ROI +' + cumRoi.toFixed(1) + '%) ▲';
                     compHtml += '</td></tr>';
                 }
