@@ -15840,7 +15840,7 @@
 
                         // Extraire les paris pour cette niche
                         var filtered = data.filter(function(m) { return m.year >= 2007 && m.year <= 2025; });
-                        var catKey = nicheConfig.cat.replace('Masters ', '').replace('WTA ', 'W').replace('ATP ', '').replace('Grand Slam', 'Grand');
+                        var catKey = nicheConfig.cat.replace('Masters ', '').replace('WTA ', '').replace('Grand Slam', 'Grand');
 
                         for (var j = 0; j < filtered.length; j++) {
                             var m = filtered[j];
