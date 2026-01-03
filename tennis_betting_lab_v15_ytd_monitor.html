@@ -15664,11 +15664,30 @@
 
             compHtml += '</tbody></table></div>';
 
+            // Stocker les niches a desactiver pour le bouton Appliquer
+            window.pfNichesToDisable = [];
+            if (targetReachedAt >= 0) {
+                for (var d = targetReachedAt + 1; d < nicheResults.length; d++) {
+                    window.pfNichesToDisable.push({
+                        name: nicheResults[d].name,
+                        circuit: nicheResults[d].niche.circuit
+                    });
+                }
+            }
+
             // Resume en bas
             if (targetReachedAt >= 0) {
-                compHtml += '<div style="margin-top:.75rem;padding:.5rem;background:rgba(34,197,94,0.15);border:1px solid var(--green);border-radius:6px;font-size:.75rem">';
-                compHtml += '<strong style="color:var(--green)">✓ Recommandation:</strong> Active les <strong>' + (targetReachedAt + 1) + ' premieres niches</strong> pour atteindre ta cible. ';
-                compHtml += 'Les niches en dessous de la ligne verte sont optionnelles (volume bonus mais ROI dilue).';
+                compHtml += '<div style="margin-top:.75rem;padding:.75rem;background:rgba(34,197,94,0.15);border:1px solid var(--green);border-radius:6px">';
+                compHtml += '<div style="font-size:.75rem;margin-bottom:.5rem"><strong style="color:var(--green)">✓ Recommandation:</strong> Active les <strong>' + (targetReachedAt + 1) + ' premieres niches</strong> pour atteindre ta cible.</div>';
+
+                if (window.pfNichesToDisable.length > 0) {
+                    compHtml += '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">';
+                    compHtml += '<button onclick="applyPortfolioStrategy()" style="background:var(--green);color:#000;border:none;padding:.5rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;font-size:.8rem">✓ Appliquer (desactiver ' + window.pfNichesToDisable.length + ' niches)</button>';
+                    compHtml += '<span style="font-size:.7rem;color:var(--muted)">Desactive automatiquement les niches sous la ligne verte</span>';
+                    compHtml += '</div>';
+                } else {
+                    compHtml += '<div style="font-size:.7rem;color:var(--muted)">Toutes tes niches sont deja optimales pour cette cible.</div>';
+                }
                 compHtml += '</div>';
             } else {
                 compHtml += '<div style="margin-top:.75rem;padding:.5rem;background:rgba(251,191,36,0.15);border:1px solid var(--yellow);border-radius:6px;font-size:.75rem">';
@@ -15688,6 +15707,42 @@
                 document.getElementById('pfLoading').style.display = 'none';
                 showToast('Erreur: ' + err.message, 'error');
             }
+        }
+
+        function applyPortfolioStrategy() {
+            if (!window.pfNichesToDisable || window.pfNichesToDisable.length === 0) {
+                showToast('Aucune niche a desactiver', 'info');
+                return;
+            }
+
+            var count = 0;
+            for (var i = 0; i < window.pfNichesToDisable.length; i++) {
+                var item = window.pfNichesToDisable[i];
+                var niches = item.circuit === 'atp' ? NICHES_ATP : NICHES_WTA;
+
+                // Trouver la niche par son nom
+                for (var j = 0; j < niches.length; j++) {
+                    if (niches[j].name === item.name) {
+                        niches[j].on = false;
+                        count++;
+                        console.log('[Portfolio] Desactive:', item.name);
+                        break;
+                    }
+                }
+            }
+
+            // Sauvegarder les changements
+            saveCustomNiches();
+
+            // Rafraichir les affichages
+            if (typeof renderNichesList === 'function') renderNichesList();
+            if (typeof renderNichesInLab === 'function') renderNichesInLab();
+            if (typeof updateSimDisplay === 'function') updateSimDisplay();
+
+            showToast(count + ' niches desactivees avec succes!', 'success');
+
+            // Relancer le calcul pour mettre a jour l'affichage
+            buildPortfolios();
         }
 
         init();
