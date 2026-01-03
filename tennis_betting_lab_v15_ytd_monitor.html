@@ -15724,6 +15724,18 @@
 
             compHtml += '</div>';
 
+            // Stocker les resultats pour l'optimiseur
+            window.pfNicheResults = nicheResults;
+            window.pfUserNiches = userNiches;
+
+            // Ajouter bouton Optimiser Combos
+            compHtml += '<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">';
+            compHtml += '<button onclick="optimizeCombos()" style="background:var(--purple);color:#fff;border:none;padding:.6rem 1.2rem;border-radius:6px;font-weight:700;cursor:pointer;font-size:.8rem;width:100%">';
+            compHtml += '🔬 Optimiser Combinaisons (ROI/Volume/DD)';
+            compHtml += '</button>';
+            compHtml += '<div id="pfOptResults" style="margin-top:.75rem"></div>';
+            compHtml += '</div>';
+
             document.getElementById('pfComparison').innerHTML = compHtml;
             showToast('Portfolios generes avec succes', 'success');
             console.log('[Portfolio] Termine avec succes');
@@ -15769,6 +15781,171 @@
 
             // Relancer le calcul pour mettre a jour l'affichage
             buildPortfolios();
+        }
+
+        // ============================================
+        // OPTIMISEUR DE COMBINAISONS
+        // Trouve les meilleures combos de niches selon ROI/Volume/DD
+        // ============================================
+        async function optimizeCombos() {
+            if (!window.pfNicheResults || window.pfNicheResults.length === 0) {
+                showToast('Lance d\'abord le calcul Portfolio', 'warning');
+                return;
+            }
+
+            var container = document.getElementById('pfOptResults');
+            container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--muted)">⏳ Calcul des combinaisons optimales...</div>';
+
+            await new Promise(function(r) { setTimeout(r, 100); });
+
+            try {
+                var niches = window.pfNicheResults;
+                var userNiches = window.pfUserNiches;
+                var targetPicks = parseInt(document.getElementById('pfTargetVolume').value) || 35;
+
+                console.log('[Optimizer] Demarrage avec', niches.length, 'niches, cible:', targetPicks, 'picks/mois');
+
+                // Fonction pour collecter les paris d'une niche
+                function getBetsForNiche(nicheData, niche) {
+                    var n = niche;
+                    var results = [];
+                    for (var i = 0; i < nicheData.length; i++) {
+                        var m = nicheData[i];
+                        if (m.category !== n.cat || m.surface !== n.surf) continue;
+                        if (n.rounds.indexOf(m.round) === -1) continue;
+
+                        var dominated = m.odds_player1 < m.odds_player2;
+                        var targetOdds = n.strat === 'UND' ? (dominated ? m.odds_player2 : m.odds_player1) : (dominated ? m.odds_player1 : m.odds_player2);
+                        if (targetOdds < n.min || targetOdds > n.max) continue;
+
+                        var win = n.strat === 'UND' ? !dominated : dominated;
+                        results.push({
+                            date: m.date,
+                            pnl: win ? (targetOdds - 1) : -1,
+                            niche: n.name
+                        });
+                    }
+                    return results;
+                }
+
+                // Fonction pour calculer DD combine d'une combo
+                function calcCombinedDD(combo, userNiches) {
+                    var allBets = [];
+                    for (var i = 0; i < combo.length; i++) {
+                        var nicheInfo = combo[i];
+                        // Trouver les donnees de la niche
+                        for (var j = 0; j < userNiches.length; j++) {
+                            if (userNiches[j].niche.name === nicheInfo.name) {
+                                var bets = getBetsForNiche(userNiches[j].data, userNiches[j].niche);
+                                allBets = allBets.concat(bets);
+                                break;
+                            }
+                        }
+                    }
+                    // Trier par date
+                    allBets.sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+                    // Calculer DD
+                    var cum = 0, peak = 0, maxDD = 0;
+                    for (var i = 0; i < allBets.length; i++) {
+                        cum += allBets[i].pnl;
+                        if (cum > peak) peak = cum;
+                        var dd = peak - cum;
+                        if (dd > maxDD) maxDD = dd;
+                    }
+
+                    var totalProfit = cum;
+                    var roi = allBets.length > 0 ? (totalProfit / allBets.length) * 100 : 0;
+                    var betsPerMonth = allBets.length / (18 * 12); // 18 ans
+
+                    return { bets: allBets.length, profit: totalProfit, roi: roi, maxDD: maxDD, betsPerMonth: betsPerMonth };
+                }
+
+                // Generer des combinaisons intelligentes
+                var combos = [];
+                var n = niches.length;
+
+                // Strategie 1: Top N par ROI (greedy jusqu'a la cible)
+                var sortedByRoi = niches.slice().sort(function(a, b) { return b.roi - a.roi; });
+                for (var size = 3; size <= Math.min(n, 15); size++) {
+                    var combo = sortedByRoi.slice(0, size);
+                    var stats = calcCombinedDD(combo, userNiches);
+                    if (stats.betsPerMonth >= targetPicks * 0.5) { // Au moins 50% de la cible
+                        combos.push({ type: 'Max ROI', size: size, niches: combo, stats: stats });
+                    }
+                }
+
+                // Strategie 2: Top N par Score
+                var sortedByScore = niches.slice().sort(function(a, b) { return b.score - a.score; });
+                for (var size = 3; size <= Math.min(n, 15); size++) {
+                    var combo = sortedByScore.slice(0, size);
+                    var stats = calcCombinedDD(combo, userNiches);
+                    if (stats.betsPerMonth >= targetPicks * 0.5) {
+                        combos.push({ type: 'Max Score', size: size, niches: combo, stats: stats });
+                    }
+                }
+
+                // Strategie 3: Meilleur ratio ROI/DD
+                var sortedByRatio = niches.slice().sort(function(a, b) {
+                    var ratioA = a.maxDD > 0 ? a.roi / a.maxDD : a.roi;
+                    var ratioB = b.maxDD > 0 ? b.roi / b.maxDD : b.roi;
+                    return ratioB - ratioA;
+                });
+                for (var size = 3; size <= Math.min(n, 15); size++) {
+                    var combo = sortedByRatio.slice(0, size);
+                    var stats = calcCombinedDD(combo, userNiches);
+                    if (stats.betsPerMonth >= targetPicks * 0.5) {
+                        combos.push({ type: 'Min DD/ROI', size: size, niches: combo, stats: stats });
+                    }
+                }
+
+                console.log('[Optimizer] Combos generees:', combos.length);
+
+                // Trouver les meilleures par categorie
+                var bestByROI = combos.filter(function(c) { return c.stats.betsPerMonth >= targetPicks * 0.8; })
+                    .sort(function(a, b) { return b.stats.roi - a.stats.roi; })[0];
+                var bestByVolume = combos.slice().sort(function(a, b) { return b.stats.betsPerMonth - a.stats.betsPerMonth; })[0];
+                var bestByDD = combos.filter(function(c) { return c.stats.roi > 5; })
+                    .sort(function(a, b) { return a.stats.maxDD - b.stats.maxDD; })[0];
+                var bestBalanced = combos.filter(function(c) { return c.stats.betsPerMonth >= targetPicks * 0.8 && c.stats.roi > 8; })
+                    .sort(function(a, b) {
+                        var scoreA = a.stats.roi - (a.stats.maxDD * 0.5);
+                        var scoreB = b.stats.roi - (b.stats.maxDD * 0.5);
+                        return scoreB - scoreA;
+                    })[0];
+
+                // Afficher les resultats
+                var html = '<div style="font-size:.75rem;font-weight:700;margin-bottom:.5rem;color:var(--purple)">🏆 MEILLEURES COMBINAISONS</div>';
+
+                function renderCombo(title, combo, color) {
+                    if (!combo) return '<div style="padding:.5rem;background:var(--bg);border-radius:4px;margin-bottom:.5rem;font-size:.65rem;color:var(--muted)">Aucune combo ' + title + ' trouvee</div>';
+                    var nicheNames = combo.niches.map(function(n) { return n.name.substring(0, 20); }).join(', ');
+                    return '<div style="padding:.5rem;background:var(--bg);border:1px solid ' + color + ';border-radius:6px;margin-bottom:.5rem">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">' +
+                        '<span style="font-weight:700;color:' + color + ';font-size:.7rem">' + title + '</span>' +
+                        '<span style="font-size:.6rem;color:var(--muted)">' + combo.size + ' niches</span>' +
+                        '</div>' +
+                        '<div style="display:flex;gap:.75rem;font-size:.65rem;margin-bottom:.25rem">' +
+                        '<span>ROI: <b style="color:var(--green)">+' + combo.stats.roi.toFixed(1) + '%</b></span>' +
+                        '<span>Vol: <b style="color:var(--blue)">' + combo.stats.betsPerMonth.toFixed(1) + ' p/m</b></span>' +
+                        '<span>DD: <b style="color:var(--red)">-' + combo.stats.maxDD.toFixed(1) + 'u</b></span>' +
+                        '</div>' +
+                        '<div style="font-size:.55rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + nicheNames + '">' + nicheNames + '</div>' +
+                        '</div>';
+                }
+
+                html += renderCombo('🎯 Max ROI', bestByROI, 'var(--green)');
+                html += renderCombo('📊 Max Volume', bestByVolume, 'var(--blue)');
+                html += renderCombo('🛡️ Min Drawdown', bestByDD, 'var(--yellow)');
+                html += renderCombo('⚖️ Equilibre', bestBalanced, 'var(--purple)');
+
+                container.innerHTML = html;
+                showToast('Optimisation terminee!', 'success');
+
+            } catch (err) {
+                console.error('[Optimizer] Erreur:', err);
+                container.innerHTML = '<div style="color:var(--red);font-size:.7rem">Erreur: ' + err.message + '</div>';
+            }
         }
 
         init();
