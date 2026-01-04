@@ -690,8 +690,8 @@
                 return;
             }
 
-            // Parse each line
-            const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+            // Parse each line - normalize spacing before colon (accept "Match:" or "Match :")
+            const lines = raw.split('\n').map(l => l.trim().replace(/\s+:/g, ':')).filter(l => l);
             let match = '', bet = '', odd = '', stake = '';
 
             lines.forEach(line => {
