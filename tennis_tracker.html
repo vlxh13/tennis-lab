@@ -1206,6 +1206,24 @@
         loadState();
         updateConfigPreview();
     </script>
-    <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">v33</div>
+    <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
+        v34 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+    </div>
+    <script>
+    function forceUpdate() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => r.unregister());
+            }).then(() => {
+                caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+            }).then(() => {
+                alert('Cache vidé. Rechargement...');
+                location.reload(true);
+            });
+        } else {
+            location.reload(true);
+        }
+    }
+    </script>
 </body>
 </html>
