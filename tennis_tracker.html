@@ -362,7 +362,7 @@
     <!-- Section Paris en cours -->
     <div class="section" id="section-pending">
         <div class="card">
-            <div class="card-title">Paris en cours</div>
+            <div class="card-title">Paris en cours <span id="pendingTotal" style="font-weight:normal;color:var(--yellow);margin-left:10px;"></span></div>
             <div id="pendingList">
                 <div class="no-data">Aucun pari en cours</div>
             </div>
@@ -929,6 +929,11 @@
         // ==================== RENDER ====================
         function renderPending() {
             const container = document.getElementById('pendingList');
+            const totalEl = document.getElementById('pendingTotal');
+
+            // Calcul total mises en cours
+            const totalStake = state.pending.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0);
+            totalEl.textContent = totalStake > 0 ? `(${totalStake.toFixed(2)}€ en jeu)` : '';
 
             if (state.pending.length === 0) {
                 container.innerHTML = '<div class="no-data">Aucun pari en cours</div>';
@@ -1207,7 +1212,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v34 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v35 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
