@@ -373,8 +373,10 @@
     <div class="section" id="section-history">
         <div class="card">
             <div class="card-title">Historique</div>
-            <div style="margin-bottom:.75rem">
+            <div style="margin-bottom:.75rem;display:flex;gap:.5rem">
                 <button class="btn btn-sm btn-secondary" onclick="exportCSV()">Export CSV</button>
+                <button class="btn btn-sm" style="background:var(--blue);color:#fff" onclick="document.getElementById('csvImport').click()">Import CSV</button>
+                <input type="file" id="csvImport" accept=".csv" style="display:none" onchange="importCSV(event)">
             </div>
             <div id="historyList">
                 <div class="no-data">Aucun historique</div>
@@ -1057,6 +1059,128 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        // ==================== IMPORT CSV ====================
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(l => l.trim());
+
+                if (lines.length < 2) {
+                    alert('CSV vide ou invalide');
+                    return;
+                }
+
+                // Parse header
+                const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+
+                // Expected: Date, J1, J2, Type, Detail, Tournoi, Cote, Units, Mise, Resultat, PnL
+                const dateIdx = header.findIndex(h => h.toLowerCase().includes('date'));
+                const j1Idx = header.findIndex(h => h.toLowerCase() === 'j1');
+                const j2Idx = header.findIndex(h => h.toLowerCase() === 'j2');
+                const typeIdx = header.findIndex(h => h.toLowerCase() === 'type');
+                const detailIdx = header.findIndex(h => h.toLowerCase() === 'detail');
+                const oddsIdx = header.findIndex(h => h.toLowerCase() === 'cote' || h.toLowerCase() === 'odds');
+                const unitsIdx = header.findIndex(h => h.toLowerCase() === 'units');
+                const stakeIdx = header.findIndex(h => h.toLowerCase() === 'mise' || h.toLowerCase() === 'stake');
+                const resultIdx = header.findIndex(h => h.toLowerCase() === 'resultat' || h.toLowerCase() === 'result');
+                const pnlIdx = header.findIndex(h => h.toLowerCase() === 'pnl');
+
+                let imported = 0;
+                let skipped = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    // Parse CSV line (handle quoted values)
+                    const row = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (const char of lines[i]) {
+                        if (char === '"') {
+                            inQuotes = !inQuotes;
+                        } else if (char === ',' && !inQuotes) {
+                            row.push(current.trim());
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    row.push(current.trim());
+
+                    // Extract values
+                    const date = dateIdx >= 0 ? row[dateIdx] : new Date().toISOString().split('T')[0];
+                    const j1 = j1Idx >= 0 ? row[j1Idx] : '';
+                    const j2 = j2Idx >= 0 ? row[j2Idx] : '';
+                    const type = typeIdx >= 0 ? row[typeIdx] : 'autre';
+                    const detail = detailIdx >= 0 ? row[detailIdx] : '';
+                    const odds = oddsIdx >= 0 ? parseFloat(row[oddsIdx]) : 1;
+                    const units = unitsIdx >= 0 ? parseFloat(row[unitsIdx]) : 1;
+                    const stake = stakeIdx >= 0 ? parseFloat(row[stakeIdx]) : 0;
+                    const result = resultIdx >= 0 ? row[resultIdx].toUpperCase() : '';
+                    const pnl = pnlIdx >= 0 ? parseFloat(row[pnlIdx]) : 0;
+
+                    // Skip invalid rows
+                    if (!j1 || !j2 || isNaN(odds)) {
+                        skipped++;
+                        continue;
+                    }
+
+                    const won = result === 'W' || result === 'WIN' || result === '1' || pnl > 0;
+
+                    // Build type label
+                    const typeLabels = {
+                        'j1': j1 + ' gagne',
+                        'j2': j2 + ' gagne',
+                        'over_jeux': 'Over ' + detail + ' jeux',
+                        'under_jeux': 'Under ' + detail + ' jeux',
+                        'over_sets': 'Over ' + detail + ' sets',
+                        'under_sets': 'Under ' + detail + ' sets',
+                        'handi_jeux': 'Handi jeux ' + detail,
+                        'handi_sets': 'Handi sets ' + detail,
+                        'sets_exact': 'Score ' + detail,
+                        'autre': detail || 'Autre'
+                    };
+
+                    const bet = {
+                        id: Date.now() + i,
+                        date: date,
+                        resolvedDate: date,
+                        j1, j2,
+                        type,
+                        typeLabel: typeLabels[type] || type,
+                        detail,
+                        odds,
+                        units,
+                        stake: stake || Math.round(units * 20),
+                        won,
+                        pnl: pnl || (won ? (odds - 1) * stake : -stake),
+                        pnlUnits: won ? (odds - 1) * units : -units
+                    };
+
+                    state.history.push(bet);
+
+                    // Add players to autocomplete
+                    if (!state.players.includes(j1)) state.players.push(j1);
+                    if (!state.players.includes(j2)) state.players.push(j2);
+
+                    imported++;
+                }
+
+                // Sort by date (most recent first)
+                state.history.sort((a, b) => new Date(b.resolvedDate) - new Date(a.resolvedDate));
+
+                saveState();
+                alert('Import terminé : ' + imported + ' paris importés' + (skipped > 0 ? ', ' + skipped + ' ignorés' : ''));
+
+                // Reset file input
+                event.target.value = '';
+            };
+
+            reader.readAsText(file);
         }
 
         // ==================== RESET ====================
