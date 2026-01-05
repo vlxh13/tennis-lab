@@ -407,6 +407,7 @@
                     <label>Stratégie de mise</label>
                     <select id="cfgStrategy" onchange="onStrategyChange()">
                         <option value="pct">% de Bankroll</option>
+                        <option value="pct_cap">% de BK avec cap</option>
                         <option value="flat">Flat (fixe)</option>
                     </select>
                 </div>
@@ -419,6 +420,16 @@
                 </div>
                 <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem">
                     Sur 1000€ : 1u = <span id="cfgUnitPreview">20€</span>
+                </div>
+            </div>
+
+            <div class="config-section" id="cfgCapSection" style="display:none">
+                <div class="form-group">
+                    <label>Cap max par unité (€)</label>
+                    <input type="number" id="cfgUnitCap" value="100" step="10" min="10" onchange="saveConfig()">
+                </div>
+                <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem">
+                    1u = min(<span id="cfgCapPctPreview">2%</span> BK, <span id="cfgCapValuePreview">100€</span>)
                 </div>
             </div>
 
@@ -474,6 +485,7 @@
             strategy: 'pct',
             unitPct: 2,
             unitFlat: 20,
+            unitCap: 100,
             pending: [],
             history: [],
             players: []
@@ -497,6 +509,7 @@
             document.getElementById('cfgStrategy').value = state.strategy;
             document.getElementById('cfgUnitPct').value = state.unitPct;
             document.getElementById('cfgUnitFlat').value = state.unitFlat;
+            document.getElementById('cfgUnitCap').value = state.unitCap || 100;
             onStrategyChange();
             updateUI();
         }
@@ -506,6 +519,7 @@
             state.strategy = document.getElementById('cfgStrategy').value;
             state.unitPct = parseFloat(document.getElementById('cfgUnitPct').value) || 2;
             state.unitFlat = parseFloat(document.getElementById('cfgUnitFlat').value) || 20;
+            state.unitCap = parseFloat(document.getElementById('cfgUnitCap').value) || 100;
 
             // Recalcul bankroll = initial + P&L
             const pnl = state.history.reduce((s, b) => s + b.pnl, 0);
@@ -600,17 +614,41 @@
 
         function onStrategyChange() {
             const strat = document.getElementById('cfgStrategy').value;
-            document.getElementById('cfgPctSection').style.display = strat === 'pct' ? 'block' : 'none';
+            document.getElementById('cfgPctSection').style.display = (strat === 'pct' || strat === 'pct_cap') ? 'block' : 'none';
+            document.getElementById('cfgCapSection').style.display = strat === 'pct_cap' ? 'block' : 'none';
             document.getElementById('cfgFlatSection').style.display = strat === 'flat' ? 'block' : 'none';
+            updateCapPreview();
             saveConfig();
+        }
+
+        function updateCapPreview() {
+            const pct = parseFloat(document.getElementById('cfgUnitPct').value) || 2;
+            const cap = parseFloat(document.getElementById('cfgUnitCap').value) || 100;
+            document.getElementById('cfgCapPctPreview').textContent = pct + '%';
+            document.getElementById('cfgCapValuePreview').textContent = cap + '€';
         }
 
         // ==================== MISE CALCULATION ====================
         function calcMise(units) {
             if (state.strategy === 'flat') {
                 return units * state.unitFlat;
+            } else if (state.strategy === 'pct_cap') {
+                const unitPct = state.bankroll * state.unitPct / 100;
+                const unitCapped = Math.min(unitPct, state.unitCap);
+                return units * unitCapped;
             } else {
                 return units * (state.bankroll * state.unitPct / 100);
+            }
+        }
+
+        function getUnitValue() {
+            if (state.strategy === 'flat') {
+                return state.unitFlat;
+            } else if (state.strategy === 'pct_cap') {
+                const unitPct = state.bankroll * state.unitPct / 100;
+                return Math.min(unitPct, state.unitCap);
+            } else {
+                return state.bankroll * state.unitPct / 100;
             }
         }
 
@@ -621,6 +659,15 @@
 
             if (state.strategy === 'flat') {
                 document.getElementById('miseDetail').textContent = units + 'u x ' + state.unitFlat + '€';
+            } else if (state.strategy === 'pct_cap') {
+                const unitPct = state.bankroll * state.unitPct / 100;
+                const unitCapped = Math.min(unitPct, state.unitCap);
+                const isCapped = unitPct > state.unitCap;
+                if (isCapped) {
+                    document.getElementById('miseDetail').textContent = units + 'u x ' + unitCapped.toFixed(0) + '€ (CAP)';
+                } else {
+                    document.getElementById('miseDetail').textContent = units + 'u x ' + unitCapped.toFixed(0) + '€ (' + state.unitPct + '% BK)';
+                }
             } else {
                 const unitEur = state.bankroll * state.unitPct / 100;
                 document.getElementById('miseDetail').textContent = units + 'u = ' + (units * state.unitPct) + '% de ' + state.bankroll.toFixed(0) + '€';
@@ -1212,7 +1259,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v36 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v37 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
