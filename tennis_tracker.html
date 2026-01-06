@@ -1218,7 +1218,7 @@
                 return;
             }
 
-            const headers = ['Date', 'J1', 'J2', 'Type', 'Detail', 'Tournoi', 'Cote', 'Units', 'Mise', 'Resultat', 'PnL'];
+            const headers = ['Date', 'J1', 'J2', 'Type', 'Detail', 'Tournoi', 'Cote', 'CoteTM', 'Units', 'Mise', 'Resultat', 'PnL'];
             const rows = state.history.map(b => [
                 b.resolvedDate,
                 b.j1,
@@ -1227,6 +1227,7 @@
                 b.detail,
                 b.tournoi,
                 b.odds,
+                b.oddsTM || '',
                 b.units,
                 b.stake,
                 b.won ? 'W' : 'L',
@@ -1271,6 +1272,7 @@
                 const typeIdx = header.findIndex(h => h.toLowerCase() === 'type');
                 const detailIdx = header.findIndex(h => h.toLowerCase() === 'detail');
                 const oddsIdx = header.findIndex(h => h.toLowerCase() === 'cote' || h.toLowerCase() === 'odds');
+                const oddsTMIdx = header.findIndex(h => h.toLowerCase() === 'cotetm' || h.toLowerCase() === 'oddstm');
                 const unitsIdx = header.findIndex(h => h.toLowerCase() === 'units');
                 const stakeIdx = header.findIndex(h => h.toLowerCase() === 'mise' || h.toLowerCase() === 'stake');
                 const resultIdx = header.findIndex(h => h.toLowerCase() === 'resultat' || h.toLowerCase() === 'result');
@@ -1303,6 +1305,7 @@
                     const type = typeIdx >= 0 ? row[typeIdx] : 'autre';
                     const detail = detailIdx >= 0 ? row[detailIdx] : '';
                     const odds = oddsIdx >= 0 ? parseFloat(row[oddsIdx]) : 1;
+                    const oddsTM = oddsTMIdx >= 0 && row[oddsTMIdx] ? parseFloat(row[oddsTMIdx]) : null;
                     const units = unitsIdx >= 0 ? parseFloat(row[unitsIdx]) : 1;
                     const stake = stakeIdx >= 0 ? parseFloat(row[stakeIdx]) : 0;
                     const result = resultIdx >= 0 ? row[resultIdx].toUpperCase() : '';
@@ -1339,6 +1342,7 @@
                         typeLabel: typeLabels[type] || type,
                         detail,
                         odds,
+                        oddsTM,
                         units,
                         stake: stake || Math.round(units * 20),
                         won,
@@ -1392,7 +1396,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v40 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v41 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {

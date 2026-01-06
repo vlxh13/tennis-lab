@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tennis-lab-v40';
+const CACHE_NAME = 'tennis-lab-v41';
 const ASSETS_TO_CACHE = [
   './',
   './tennis_betting_lab_v15_ytd_monitor.html',
