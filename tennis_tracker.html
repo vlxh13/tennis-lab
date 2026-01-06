@@ -1146,7 +1146,7 @@
                         tmInfo = `<span style="color:var(--muted);font-size:.7rem"> (TM: ${b.oddsTM})</span>`;
                     }
                 }
-                const editTMBtn = !b.oddsTM ? `<button class="btn btn-sm" style="background:transparent;color:var(--purple);padding:2px 6px;font-size:.65rem;margin-right:.25rem" onclick="editOddsTM(${b.id})">+TM</button>` : '';
+                const editTMBtn = !b.oddsTM ? `<button class="btn btn-sm" style="background:var(--purple);color:#fff;padding:3px 8px;font-size:.7rem;margin-right:.5rem;border-radius:4px" onclick="editOddsTM(${b.id})">+TM</button>` : '';
                 return `
                 <div class="bet-card ${b.won ? 'won' : 'lost'}">
                     <div class="bet-header">
@@ -1392,7 +1392,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v39 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v40 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
