@@ -282,6 +282,17 @@
             <div class="value neg" id="statDDTop">0€</div>
         </div>
     </div>
+    <!-- Stat écart cotes TM -->
+    <div id="tmCompareSection" class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: .5rem; display: none;">
+        <div class="stat">
+            <div class="label">Écart cotes TM</div>
+            <div class="value neg" id="statOddsGap">0€</div>
+        </div>
+        <div class="stat">
+            <div class="label">Écart moyen</div>
+            <div class="value" id="statAvgGap" style="color:var(--muted)">0%</div>
+        </div>
+    </div>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -341,8 +352,9 @@
 
             <div class="form-row two">
                 <div class="form-group">
-                    <label>Cote</label>
+                    <label>Cote <span id="oddsTMDisplay" style="color:var(--muted);font-size:.65rem"></span></label>
                     <input type="number" id="addOdds" step="0.01" placeholder="1.85" oninput="updateMisePreview()">
+                    <input type="hidden" id="addOddsTM" value="">
                 </div>
                 <div class="form-group">
                     <label>Mise (unités)</label>
@@ -576,6 +588,28 @@
             document.getElementById('statDDTop').textContent = dd.max.toFixed(0) + '€';
             document.getElementById('statDD').textContent = dd.current.toFixed(0) + '€';
             document.getElementById('statDDMax').textContent = dd.max.toFixed(0) + '€';
+
+            // TM Odds comparison (value perdue sur les paris gagnants)
+            const betsWithTM = state.history.filter(b => b.oddsTM && b.oddsTM > 0);
+            const wonBetsWithTM = betsWithTM.filter(b => b.won);
+            let totalOddsGap = 0;
+            let totalGapPercent = 0;
+            wonBetsWithTM.forEach(b => {
+                // Value perdue = (coteTM - coteReelle) * mise
+                totalOddsGap += (b.oddsTM - b.odds) * b.stake;
+                totalGapPercent += ((b.oddsTM - b.odds) / b.oddsTM) * 100;
+            });
+            const avgGapPercent = wonBetsWithTM.length > 0 ? (totalGapPercent / wonBetsWithTM.length) : 0;
+
+            // Show section only if we have TM data
+            const tmSection = document.getElementById('tmCompareSection');
+            if (betsWithTM.length > 0) {
+                tmSection.style.display = 'grid';
+                document.getElementById('statOddsGap').textContent = (totalOddsGap >= 0 ? '-' : '+') + Math.abs(totalOddsGap).toFixed(0) + '€';
+                document.getElementById('statAvgGap').textContent = '-' + avgGapPercent.toFixed(1) + '%';
+            } else {
+                tmSection.style.display = 'none';
+            }
 
             // Pending count
             document.getElementById('pendingCount').textContent = '(' + state.pending.length + ')';
@@ -835,6 +869,10 @@
             oddsInput.style.border = '2px solid var(--yellow)';
             oddsInput.style.background = 'rgba(234, 179, 8, 0.1)';
 
+            // Store TM odds in hidden field
+            document.getElementById('addOddsTM').value = odd;
+            document.getElementById('oddsTMDisplay').textContent = odd ? `(TM: ${odd})` : '';
+
             // Update mise preview
             updateMisePreview();
             onTypeChange();
@@ -898,6 +936,10 @@
                 'autre': detail || 'Autre'
             };
 
+            // Get TM odds if available
+            const oddsTMValue = document.getElementById('addOddsTM').value;
+            const oddsTM = oddsTMValue ? parseFloat(oddsTMValue) : null;
+
             const bet = {
                 id: Date.now(),
                 date: new Date().toISOString().split('T')[0],
@@ -906,6 +948,7 @@
                 typeLabel: typeLabels[type],
                 detail,
                 odds,
+                oddsTM,
                 units,
                 stake: stake,
                 bankrollAtBet: state.bankroll
@@ -933,6 +976,8 @@
             document.getElementById('addJ2').value = '';
             document.getElementById('addDetail').value = '';
             document.getElementById('addOdds').value = '';
+            document.getElementById('addOddsTM').value = '';
+            document.getElementById('oddsTMDisplay').textContent = '';
             document.getElementById('addUnits').value = '1';
             updateMisePreview();
 
@@ -973,6 +1018,17 @@
             }
         }
 
+        function editOddsTM(id) {
+            const bet = state.history.find(b => b.id === id);
+            if (!bet) return;
+
+            const oddsTM = prompt(`Cote TM pour ${bet.j1} vs ${bet.j2} (@${bet.odds}) :`, '');
+            if (oddsTM && !isNaN(parseFloat(oddsTM))) {
+                bet.oddsTM = parseFloat(oddsTM);
+                saveState();
+            }
+        }
+
         // ==================== RENDER ====================
         function renderPending() {
             const container = document.getElementById('pendingList');
@@ -987,11 +1043,13 @@
                 return;
             }
 
-            container.innerHTML = state.pending.map(b => `
+            container.innerHTML = state.pending.map(b => {
+                const tmInfo = b.oddsTM ? `<span style="color:var(--muted);font-size:.7rem"> (TM: ${b.oddsTM}${b.oddsTM > b.odds ? ' ⬇' + ((b.oddsTM - b.odds) * b.stake).toFixed(1) + '€' : ''})</span>` : '';
+                return `
                 <div class="bet-card pending">
                     <div class="bet-header">
                         <span class="bet-player">${b.j1} vs ${b.j2}</span>
-                        <span class="bet-odds">@${b.odds}</span>
+                        <span class="bet-odds">@${b.odds}${tmInfo}</span>
                     </div>
                     <div class="bet-details">
                         <span class="bet-type">${b.typeLabel}</span>
@@ -1003,7 +1061,7 @@
                         <button class="btn btn-sm btn-secondary" onclick="deleteBet(${b.id})">Suppr</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function renderHistory() {
@@ -1014,7 +1072,19 @@
                 return;
             }
 
-            container.innerHTML = state.history.slice(0, 50).map(b => `
+            container.innerHTML = state.history.slice(0, 50).map(b => {
+                let tmInfo = '';
+                if (b.oddsTM) {
+                    const gap = b.oddsTM - b.odds;
+                    const gapEur = gap * b.stake;
+                    if (b.won && gap > 0) {
+                        tmInfo = `<span style="color:var(--red);font-size:.7rem"> (TM: ${b.oddsTM} ⬇${gapEur.toFixed(1)}€)</span>`;
+                    } else if (b.oddsTM) {
+                        tmInfo = `<span style="color:var(--muted);font-size:.7rem"> (TM: ${b.oddsTM})</span>`;
+                    }
+                }
+                const editTMBtn = !b.oddsTM ? `<button class="btn btn-sm" style="background:transparent;color:var(--purple);padding:2px 6px;font-size:.65rem;margin-right:.25rem" onclick="editOddsTM(${b.id})">+TM</button>` : '';
+                return `
                 <div class="bet-card ${b.won ? 'won' : 'lost'}">
                     <div class="bet-header">
                         <span class="bet-player">${b.j1} vs ${b.j2}</span>
@@ -1022,14 +1092,14 @@
                     </div>
                     <div class="bet-details">
                         <span class="bet-type">${b.typeLabel}</span>
-                        ${b.detail ? '<span style="color:var(--yellow)">' + b.detail + '</span> • ' : ''}@${b.odds} • ${b.units}u
+                        ${b.detail ? '<span style="color:var(--yellow)">' + b.detail + '</span> • ' : ''}@${b.odds}${tmInfo} • ${b.units}u
                         <span style="float:right">
                             <span style="color:var(--muted);margin-right:.5rem">${b.resolvedDate}</span>
-                            <button class="btn btn-sm" style="background:transparent;color:var(--muted);padding:2px 6px;font-size:.65rem" onclick="deleteBet(${b.id}, true)">✕</button>
+                            ${editTMBtn}<button class="btn btn-sm" style="background:transparent;color:var(--muted);padding:2px 6px;font-size:.65rem" onclick="deleteBet(${b.id}, true)">✕</button>
                         </span>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         // ==================== CHART ====================
@@ -1259,7 +1329,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v37 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v38 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
