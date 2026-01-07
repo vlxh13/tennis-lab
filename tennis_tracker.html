@@ -303,8 +303,22 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
+            max-width: 90%;
+            text-align: center;
         }
         .toast.show { opacity: 1; }
+        /* Toast large pour PS3838 */
+        .toast.large {
+            background: var(--card);
+            border: 2px solid var(--blue);
+            color: var(--text);
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+        .toast.large .toast-player { color: var(--green); font-weight: 700; }
+        .toast.large .toast-type { color: var(--yellow); }
+        .toast.large .toast-mise { color: var(--blue); font-weight: 700; }
     </style>
 </head>
 <body>
@@ -1299,13 +1313,16 @@
         }
 
         // ==================== TOAST ====================
-        function showToast(message) {
+        function showToast(message, duration = 2000, isLarge = false) {
             const toast = document.getElementById('toast');
-            toast.textContent = message;
+            toast.innerHTML = message;
+            toast.classList.remove('large');
+            if (isLarge) toast.classList.add('large');
             toast.classList.add('show');
             setTimeout(() => {
                 toast.classList.remove('show');
-            }, 2000);
+                toast.classList.remove('large');
+            }, duration);
         }
 
         // ==================== PS3838 ====================
@@ -1313,32 +1330,32 @@
         let ps3838BetInfo = { player: '', betType: '', mise: '' };
 
         function openPS3838() {
-            // Build clipboard text with all bet info:
-            // Line 1: Player name (for search)
-            // Line 2: Bet type (Over 22.5 games, etc.)
-            // Line 3: Stake in euros
-            const clipboardText = [
-                ps3838BetInfo.player || ps3838PlayerName || '',
-                ps3838BetInfo.betType || '',
-                ps3838BetInfo.mise || ''
-            ].filter(l => l).join('\n');
+            // v50: Copier SEULEMENT le nom du joueur (pour la recherche PS3838)
+            // Afficher un toast large avec toutes les infos (type + mise)
+            const playerName = ps3838BetInfo.player || ps3838PlayerName || '';
+            const betType = ps3838BetInfo.betType || '';
+            const mise = ps3838BetInfo.mise || '';
 
-            if (clipboardText) {
-                navigator.clipboard.writeText(clipboardText).then(() => {
-                    showToast('Infos copiees !');
+            if (playerName) {
+                navigator.clipboard.writeText(playerName).then(() => {
+                    // Toast large avec toutes les infos (4 secondes)
+                    const toastHtml = `<span class="toast-player">${playerName}</span> | <span class="toast-type">${betType}</span> | <span class="toast-mise">${mise}</span>`;
+                    showToast(toastHtml, 4000, true);
                 }).catch(() => {
                     // Fallback for iOS/older browsers - try execCommand
                     const textarea = document.createElement('textarea');
-                    textarea.value = clipboardText;
+                    textarea.value = playerName;
                     textarea.style.position = 'fixed';
                     textarea.style.opacity = '0';
                     document.body.appendChild(textarea);
                     textarea.select();
                     try {
                         document.execCommand('copy');
-                        showToast('Infos copiees !');
+                        const toastHtml = `<span class="toast-player">${playerName}</span> | <span class="toast-type">${betType}</span> | <span class="toast-mise">${mise}</span>`;
+                        showToast(toastHtml, 4000, true);
                     } catch (e) {
-                        showToast(ps3838BetInfo.player + ' | ' + ps3838BetInfo.mise);
+                        // Si clipboard fail, juste afficher les infos
+                        showToast(`${playerName} | ${betType} | ${mise}`, 4000, true);
                     }
                     document.body.removeChild(textarea);
                 });
@@ -1744,7 +1761,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v49 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v50 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
