@@ -354,7 +354,10 @@
             <!-- Import Telegram -->
             <div class="telegram-import" style="margin-bottom:1rem">
                 <textarea id="telegramInput" placeholder="Colle ton message Telegram ici..." rows="3" style="width:100%;padding:.5rem;font-size:.8rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);resize:none"></textarea>
-                <button class="btn btn-sm" style="background:var(--purple);color:#fff;margin-top:.5rem;width:100%" onclick="parseTelegram()">📥 Importer depuis Telegram</button>
+                <button class="btn btn-sm" style="background:var(--purple);color:#fff;margin-top:.5rem;width:100%" onclick="parseTelegram()">Importer depuis Telegram</button>
+            </div>
+            <!-- Message brut Telegram (affiché après import) -->
+            <div id="telegramRawDisplay" style="display:none;margin-bottom:1rem;padding:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.75rem;color:var(--muted);white-space:pre-wrap;max-height:120px;overflow-y:auto">
             </div>
 
             <div style="text-align:center;color:var(--muted);font-size:.7rem;margin-bottom:.75rem">— ou remplir manuellement —</div>
@@ -808,12 +811,25 @@
         }
 
         // ==================== TELEGRAM PARSER ====================
+        // Types de paris Tennis Metrics supportes:
+        // - ML (Match Winner): "Player wins", "Player ML", just player name
+        // - Over/Under Games: "Over 22.5 games", "O 22.5", "Total games Over 22.5"
+        // - Over/Under Sets: "Over 2.5 sets", "O 2.5 sets", "Total sets Over 2.5"
+        // - Handicap Games: "Player HDP -3.5 games", "Player +4.5 games"
+        // - Handicap Sets: "Player HDP -1.5 sets", "Player +1.5 sets"
+        // - Exact Sets: "2-0", "2-1", "3-1", etc.
+
         function parseTelegram() {
             const raw = document.getElementById('telegramInput').value.trim();
             if (!raw) {
                 alert('Colle un message Telegram d\'abord');
                 return;
             }
+
+            // Afficher le message brut
+            const rawDisplay = document.getElementById('telegramRawDisplay');
+            rawDisplay.textContent = raw;
+            rawDisplay.style.display = 'block';
 
             // Parse each line - normalize spacing before colon (accept "Match:" or "Match :")
             const lines = raw.split('\n').map(l => l.trim().replace(/\s+:/g, ':')).filter(l => l);
@@ -831,68 +847,141 @@
                 }
             });
 
-            // Parse players from match
-            const players = match.split('/').map(p => p.trim());
+            // Parse players from match (format: "Player1 / Player2" or "Player1 vs Player2")
+            let players = match.split('/').map(p => p.trim());
+            if (players.length < 2) {
+                players = match.split(' vs ').map(p => p.trim());
+            }
+            if (players.length < 2) {
+                players = match.split(' v ').map(p => p.trim());
+            }
             const j1 = players[0] || '';
             const j2 = players[1] || '';
 
             // Parse stake (e.g., "0.5u" -> 0.5)
-            const unitsMatch = stake.match(/([\d.]+)u/i);
+            const unitsMatch = stake.match(/([\d.]+)\s*u/i);
             const units = unitsMatch ? parseFloat(unitsMatch[1]) : 1;
 
-            // Parse bet type and detail
+            // Parse bet type and detail - version exhaustive Tennis Metrics
             let type = 'autre';
             let detail = '';
-            let betLower = bet.toLowerCase();
+            const betLower = bet.toLowerCase();
+            const betNormalized = bet.replace(/\s+/g, ' ').trim();
 
-            if (betLower.includes('hdp') || betLower.includes('handicap')) {
-                // Handicap bet - extract player and value
-                // Format: "Cobolli F. HDP -2 games" or "Player HDP +3.5 sets"
-                if (betLower.includes('game')) {
-                    type = 'handi_jeux';
-                } else if (betLower.includes('set')) {
+            // Helper: extraire un nombre du bet
+            const extractNumber = (str) => {
+                const m = str.match(/(\d+\.?\d*)/);
+                return m ? m[1] : '';
+            };
+
+            // Helper: trouver quel joueur est mentionne dans le bet
+            const findPlayerInBet = () => {
+                const j1First = j1 ? j1.split(' ')[0].toLowerCase() : '';
+                const j2First = j2 ? j2.split(' ')[0].toLowerCase() : '';
+                const j1Last = j1 ? j1.split(' ').pop().toLowerCase() : '';
+                const j2Last = j2 ? j2.split(' ').pop().toLowerCase() : '';
+
+                // Check first name or last name
+                if (j1First && betLower.includes(j1First)) return 'j1';
+                if (j1Last && j1Last.length > 2 && betLower.includes(j1Last)) return 'j1';
+                if (j2First && betLower.includes(j2First)) return 'j2';
+                if (j2Last && j2Last.length > 2 && betLower.includes(j2Last)) return 'j2';
+                return null;
+            };
+
+            // 1. HANDICAP (HDP, handicap, AH)
+            // Formats: "Player HDP -3.5 games", "Player +4.5 sets", "AH Player -1.5"
+            if (betLower.includes('hdp') || betLower.includes('handicap') || betLower.includes(' ah ') || betLower.match(/\bah\b/)) {
+                // Determine games or sets
+                if (betLower.includes('set')) {
                     type = 'handi_sets';
                 } else {
                     type = 'handi_jeux'; // default to games
                 }
-                // Extract the handicap value (e.g., -2, +3.5)
-                const hdpMatch = bet.match(/([+-]?\d+\.?\d*)\s*(game|set|$)/i);
-                if (hdpMatch) {
-                    detail = hdpMatch[1];
+
+                // Extract handicap value (e.g., -3.5, +4.5)
+                const hdpMatch = bet.match(/([+-]?\s*\d+\.?\d*)\s*(game|set|jeux|$)/i);
+                let hdpValue = hdpMatch ? hdpMatch[1].replace(/\s/g, '') : '';
+
+                // If no sign, try to find it elsewhere
+                if (hdpValue && !hdpValue.startsWith('+') && !hdpValue.startsWith('-')) {
+                    const signMatch = bet.match(/([+-])\s*\d/);
+                    if (signMatch) hdpValue = signMatch[1] + hdpValue;
                 }
-                // Check which player the handicap is for
-                if (j1 && bet.toLowerCase().includes(j1.toLowerCase().split(' ')[0])) {
-                    detail = j1.split(' ')[0] + ' ' + detail;
-                } else if (j2 && bet.toLowerCase().includes(j2.toLowerCase().split(' ')[0])) {
-                    detail = j2.split(' ')[0] + ' ' + detail;
+
+                // Find which player
+                const player = findPlayerInBet();
+                if (player === 'j1') {
+                    detail = j1.split(' ')[0] + ' ' + hdpValue;
+                } else if (player === 'j2') {
+                    detail = j2.split(' ')[0] + ' ' + hdpValue;
+                } else {
+                    detail = hdpValue;
                 }
-            } else if (betLower.includes('over')) {
+            }
+            // 2. OVER/UNDER SETS
+            // Formats: "Over 2.5 sets", "O 2.5 sets", "Total sets Over 2.5", "+2.5 sets", "sets O 2.5"
+            else if ((betLower.includes('over') || betLower.includes(' o ') || betLower.match(/\bo\b/) || betLower.startsWith('o ')) && betLower.includes('set')) {
+                type = 'over_sets';
+                detail = extractNumber(bet);
+            }
+            else if ((betLower.includes('under') || betLower.includes(' u ') || betLower.match(/\bu\b/) || betLower.startsWith('u ')) && betLower.includes('set')) {
+                type = 'under_sets';
+                detail = extractNumber(bet);
+            }
+            // 3. OVER/UNDER GAMES (JEUX)
+            // Formats: "Over 22.5 games", "O 22.5", "Total games Over 22.5", "+22.5 games"
+            // If no "sets" mentioned, default to games
+            else if (betLower.includes('over') || (betLower.match(/\bo\b/) && !betLower.includes('score')) || betLower.startsWith('o ') || betLower.includes(' o ')) {
+                // Check if it's about sets (already handled above) or games
                 if (betLower.includes('set')) {
                     type = 'over_sets';
                 } else {
                     type = 'over_jeux';
                 }
-                const numMatch = bet.match(/([\d.]+)/);
-                if (numMatch) detail = numMatch[1];
-            } else if (betLower.includes('under')) {
+                detail = extractNumber(bet);
+            }
+            else if (betLower.includes('under') || betLower.match(/\bu\b/) || betLower.startsWith('u ') || betLower.includes(' u ')) {
                 if (betLower.includes('set')) {
                     type = 'under_sets';
                 } else {
                     type = 'under_jeux';
                 }
-                const numMatch = bet.match(/([\d.]+)/);
-                if (numMatch) detail = numMatch[1];
-            } else {
-                // Check for match winner bet (J1 or J2)
-                const j1Name = j1 ? j1.toLowerCase().split(' ')[0] : '';
-                const j2Name = j2 ? j2.toLowerCase().split(' ')[0] : '';
-                const hasJ1 = j1Name && betLower.includes(j1Name);
-                const hasJ2 = j2Name && betLower.includes(j2Name);
-                const hasWin = betLower.includes('win') || betLower.includes('winner') || betLower.includes('ml');
+                detail = extractNumber(bet);
+            }
+            // 4. TOTAL GAMES/SETS (autre format TM)
+            // Formats: "Total games 22.5 Over", "Tot. 22.5 O", "TG O 22.5"
+            else if (betLower.includes('total') || betLower.includes('tot.') || betLower.includes('tot ') || betLower.match(/\btg\b/) || betLower.match(/\bts\b/)) {
+                const isOver = betLower.includes('over') || betLower.match(/\bo\b/) || betLower.includes('+');
+                const isUnder = betLower.includes('under') || betLower.match(/\bu\b/) || betLower.includes('-');
+                const isSets = betLower.includes('set') || betLower.match(/\bts\b/);
 
-                if (hasJ2 && (hasWin || !hasJ1)) {
+                if (isSets) {
+                    type = isOver ? 'over_sets' : (isUnder ? 'under_sets' : 'over_sets');
+                } else {
+                    type = isOver ? 'over_jeux' : (isUnder ? 'under_jeux' : 'over_jeux');
+                }
+                detail = extractNumber(bet);
+            }
+            // 5. SCORE EXACT (sets)
+            // Formats: "2-0", "2-1", "3-0", "3-1", "3-2", "Score 2-1"
+            else if (bet.match(/\b[23]-[012]\b/) || betLower.includes('score')) {
+                type = 'sets_exact';
+                const scoreMatch = bet.match(/([23]-[012])/);
+                detail = scoreMatch ? scoreMatch[1] : '';
+            }
+            // 6. MATCH WINNER (ML)
+            // Formats: "Player wins", "Player ML", "ML Player", just player name, "Player to win"
+            else {
+                const player = findPlayerInBet();
+                const hasWinKeyword = betLower.includes('win') || betLower.includes('ml') || betLower.includes('match') || betLower.includes('to win');
+
+                if (player === 'j2') {
                     type = 'j2';
-                } else if (hasJ1 || hasWin) {
+                } else if (player === 'j1') {
+                    type = 'j1';
+                } else if (hasWinKeyword) {
+                    // Si on trouve "win" mais pas de joueur, default to j1
                     type = 'j1';
                 }
                 // else stays 'autre'
@@ -928,24 +1017,35 @@
             oddsInput.focus();
             oddsInput.select();
 
-            // Show confirmation message
+            // Show confirmation message with parsed type
+            const typeLabels = {
+                'j1': 'ML ' + j1,
+                'j2': 'ML ' + j2,
+                'over_jeux': 'Over ' + detail + ' jeux',
+                'under_jeux': 'Under ' + detail + ' jeux',
+                'over_sets': 'Over ' + detail + ' sets',
+                'under_sets': 'Under ' + detail + ' sets',
+                'handi_jeux': 'Handicap jeux ' + detail,
+                'handi_sets': 'Handicap sets ' + detail,
+                'sets_exact': 'Score exact ' + detail,
+                'autre': 'Autre'
+            };
+
             const confirmMsg = document.createElement('div');
             confirmMsg.id = 'telegramConfirm';
             confirmMsg.style.cssText = 'background:var(--yellow);color:#000;padding:.5rem;border-radius:6px;text-align:center;font-size:.8rem;font-weight:600;margin-bottom:.75rem';
-            confirmMsg.textContent = '⚠️ Confirme la cote prise puis clique "Ajouter"';
+            confirmMsg.innerHTML = 'Detecte: <strong>' + typeLabels[type] + '</strong> - Confirme la cote puis "Ajouter"';
 
             const existingConfirm = document.getElementById('telegramConfirm');
             if (existingConfirm) existingConfirm.remove();
 
-            const telegramSection = document.querySelector('.telegram-import');
-            telegramSection.insertAdjacentElement('afterend', confirmMsg);
+            const rawDisplayEl = document.getElementById('telegramRawDisplay');
+            rawDisplayEl.insertAdjacentElement('afterend', confirmMsg);
 
             // Remove highlight when user changes odds
             oddsInput.addEventListener('input', function onOddsChange() {
                 oddsInput.style.border = '1px solid var(--border)';
                 oddsInput.style.background = 'var(--bg)';
-                const msg = document.getElementById('telegramConfirm');
-                if (msg) msg.remove();
                 oddsInput.removeEventListener('input', onOddsChange);
             }, { once: true });
         }
@@ -1000,9 +1100,11 @@
 
             state.pending.push(bet);
 
-            // Clean up telegram confirm message if present
+            // Clean up telegram confirm message and raw display if present
             const telegramConfirm = document.getElementById('telegramConfirm');
             if (telegramConfirm) telegramConfirm.remove();
+            const telegramRaw = document.getElementById('telegramRawDisplay');
+            if (telegramRaw) telegramRaw.style.display = 'none';
 
             // Reset odds input style
             const oddsInput = document.getElementById('addOdds');
@@ -1396,7 +1498,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v42 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v43 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
