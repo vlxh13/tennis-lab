@@ -1291,13 +1291,18 @@
 
         // ==================== PS3838 ====================
         function openPS3838() {
-            // PS3838 tennis page - user will search manually since it's a SPA
-            // Try with search query parameter (common format)
+            // Copy player name to clipboard for easy search on PS3838
             const searchName = ps3838PlayerName || '';
-            const url = searchName
-                ? 'https://www.ps3838.com/en/sports/tennis?search=' + encodeURIComponent(searchName)
-                : 'https://www.ps3838.com/en/sports/tennis';
-            window.open(url, '_blank');
+            if (searchName) {
+                navigator.clipboard.writeText(searchName).then(() => {
+                    showToast(searchName + ' copie - colle dans PS3838');
+                }).catch(() => {
+                    // Fallback for iOS/older browsers
+                    showToast('Ouvre PS3838 et cherche: ' + searchName);
+                });
+            }
+            // Open PS3838 tennis page
+            window.open('https://www.ps3838.com/en/sports/tennis', '_blank');
         }
 
         // ==================== RESOLVE BET ====================
@@ -1697,7 +1702,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v45 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v46 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
