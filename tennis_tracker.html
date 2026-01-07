@@ -610,11 +610,11 @@
 
             // Bankroll
             state.bankroll = state.initialBankroll + pnl;
-            document.getElementById('headerBankroll').textContent = state.bankroll.toFixed(0) + '€';
+            document.getElementById('headerBankroll').textContent = state.bankroll.toFixed(2) + '€';
             document.getElementById('headerBankroll').style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
 
             // Stats rapides
-            document.getElementById('statPnl').textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(0) + '€';
+            document.getElementById('statPnl').textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '€';
             document.getElementById('statPnl').className = 'value ' + (pnl >= 0 ? 'pos' : 'neg');
             document.getElementById('statRoi').textContent = (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%';
             document.getElementById('statRoi').className = 'value ' + (roi >= 0 ? 'pos' : 'neg');
@@ -629,9 +629,9 @@
 
             // Drawdown
             const dd = calcDrawdown();
-            document.getElementById('statDDTop').textContent = dd.max.toFixed(0) + '€';
-            document.getElementById('statDD').textContent = dd.current.toFixed(0) + '€';
-            document.getElementById('statDDMax').textContent = dd.max.toFixed(0) + '€';
+            document.getElementById('statDDTop').textContent = dd.max.toFixed(2) + '€';
+            document.getElementById('statDD').textContent = dd.current.toFixed(2) + '€';
+            document.getElementById('statDDMax').textContent = dd.max.toFixed(2) + '€';
 
             // TM Odds comparison (value perdue sur les paris gagnants)
             const betsWithTM = state.history.filter(b => b.oddsTM && b.oddsTM > 0);
@@ -649,7 +649,7 @@
             const tmSection = document.getElementById('tmCompareSection');
             if (betsWithTM.length > 0) {
                 tmSection.style.display = 'grid';
-                document.getElementById('statOddsGap').textContent = (totalOddsGap >= 0 ? '-' : '+') + Math.abs(totalOddsGap).toFixed(0) + '€';
+                document.getElementById('statOddsGap').textContent = (totalOddsGap >= 0 ? '-' : '+') + Math.abs(totalOddsGap).toFixed(2) + '€';
                 document.getElementById('statAvgGap').textContent = '-' + avgGapPercent.toFixed(1) + '%';
             } else {
                 tmSection.style.display = 'none';
@@ -687,7 +687,7 @@
             const bk = parseFloat(document.getElementById('cfgBankroll').value) || 1000;
             const pct = parseFloat(document.getElementById('cfgUnitPct').value) || 2;
             const unitEur = bk * pct / 100;
-            document.getElementById('cfgUnitPreview').textContent = unitEur.toFixed(0) + '€';
+            document.getElementById('cfgUnitPreview').textContent = unitEur.toFixed(2) + '€';
         }
 
         function onStrategyChange() {
@@ -733,22 +733,22 @@
         function updateMisePreview() {
             const units = parseFloat(document.getElementById('addUnits').value) || 1;
             const mise = calcMise(units);
-            document.getElementById('miseAmount').textContent = mise.toFixed(0) + '€';
+            document.getElementById('miseAmount').textContent = mise.toFixed(2) + '€';
 
             if (state.strategy === 'flat') {
-                document.getElementById('miseDetail').textContent = units + 'u x ' + state.unitFlat + '€';
+                document.getElementById('miseDetail').textContent = units + 'u x ' + state.unitFlat.toFixed(2) + '€';
             } else if (state.strategy === 'pct_cap') {
                 const unitPct = state.bankroll * state.unitPct / 100;
                 const unitCapped = Math.min(unitPct, state.unitCap);
                 const isCapped = unitPct > state.unitCap;
                 if (isCapped) {
-                    document.getElementById('miseDetail').textContent = units + 'u x ' + unitCapped.toFixed(0) + '€ (CAP)';
+                    document.getElementById('miseDetail').textContent = units + 'u x ' + unitCapped.toFixed(2) + '€ (CAP)';
                 } else {
-                    document.getElementById('miseDetail').textContent = units + 'u x ' + unitCapped.toFixed(0) + '€ (' + state.unitPct + '% BK)';
+                    document.getElementById('miseDetail').textContent = units + 'u x ' + unitCapped.toFixed(2) + '€ (' + state.unitPct + '% BK)';
                 }
             } else {
                 const unitEur = state.bankroll * state.unitPct / 100;
-                document.getElementById('miseDetail').textContent = units + 'u = ' + (units * state.unitPct) + '% de ' + state.bankroll.toFixed(0) + '€';
+                document.getElementById('miseDetail').textContent = units + 'u = ' + (units * state.unitPct) + '% de ' + state.bankroll.toFixed(2) + '€';
             }
         }
 
@@ -1396,7 +1396,7 @@
         updateConfigPreview();
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v41 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v42 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
