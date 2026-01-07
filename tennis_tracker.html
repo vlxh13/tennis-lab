@@ -1103,6 +1103,15 @@
             // Show PS3838 button with player name
             // getLastName: "Van de Zandschulp B." -> "Van de Zandschulp"
             ps3838PlayerName = getLastName(j1);
+
+            // Store all bet info for clipboard
+            const miseEuros = calcMise(units).toFixed(0) + '€';
+            ps3838BetInfo = {
+                player: ps3838PlayerName,
+                betType: typeLabels[type],
+                mise: miseEuros
+            };
+
             const ps3838Container = document.getElementById('ps3838BtnContainer');
             const ps3838Btn = document.getElementById('ps3838Btn');
             ps3838Btn.textContent = 'Ouvrir PS3838 (' + ps3838PlayerName + ')';
@@ -1300,15 +1309,38 @@
         }
 
         // ==================== PS3838 ====================
+        // Stocke les infos du pari pour le presse-papier
+        let ps3838BetInfo = { player: '', betType: '', mise: '' };
+
         function openPS3838() {
-            // Copy player name to clipboard for easy search on PS3838
-            const searchName = ps3838PlayerName || '';
-            if (searchName) {
-                navigator.clipboard.writeText(searchName).then(() => {
-                    showToast(searchName + ' copie - colle dans PS3838');
+            // Build clipboard text with all bet info:
+            // Line 1: Player name (for search)
+            // Line 2: Bet type (Over 22.5 games, etc.)
+            // Line 3: Stake in euros
+            const clipboardText = [
+                ps3838BetInfo.player || ps3838PlayerName || '',
+                ps3838BetInfo.betType || '',
+                ps3838BetInfo.mise || ''
+            ].filter(l => l).join('\n');
+
+            if (clipboardText) {
+                navigator.clipboard.writeText(clipboardText).then(() => {
+                    showToast('Infos copiees !');
                 }).catch(() => {
-                    // Fallback for iOS/older browsers
-                    showToast('Ouvre PS3838 et cherche: ' + searchName);
+                    // Fallback for iOS/older browsers - try execCommand
+                    const textarea = document.createElement('textarea');
+                    textarea.value = clipboardText;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        showToast('Infos copiees !');
+                    } catch (e) {
+                        showToast(ps3838BetInfo.player + ' | ' + ps3838BetInfo.mise);
+                    }
+                    document.body.removeChild(textarea);
                 });
             }
             // Open PS3838 tennis page
@@ -1712,7 +1744,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v48 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v49 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
