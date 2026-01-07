@@ -908,17 +908,26 @@
                 return m ? m[1] : '';
             };
 
+            // Helper: extraire le nom de famille (tout sauf l'initiale finale)
+            // "Sinner J." -> "Sinner", "Van de Zandschulp B." -> "Van de Zandschulp"
+            const getLastName = (name) => {
+                if (!name) return '';
+                const parts = name.trim().split(' ');
+                if (parts.length <= 1) return name;
+                return parts.slice(0, -1).join(' ');
+            };
+
             // Helper: trouver quel joueur est mentionne dans le bet
             const findPlayerInBet = () => {
-                const j1First = j1 ? j1.split(' ')[0].toLowerCase() : '';
-                const j2First = j2 ? j2.split(' ')[0].toLowerCase() : '';
+                const j1Name = j1 ? getLastName(j1).toLowerCase() : '';
+                const j2Name = j2 ? getLastName(j2).toLowerCase() : '';
                 const j1Last = j1 ? j1.split(' ').pop().toLowerCase() : '';
                 const j2Last = j2 ? j2.split(' ').pop().toLowerCase() : '';
 
-                // Check first name or last name
-                if (j1First && betLower.includes(j1First)) return 'j1';
+                // Check last name (sans initiale) ou initiale seule
+                if (j1Name && betLower.includes(j1Name)) return 'j1';
                 if (j1Last && j1Last.length > 2 && betLower.includes(j1Last)) return 'j1';
-                if (j2First && betLower.includes(j2First)) return 'j2';
+                if (j2Name && betLower.includes(j2Name)) return 'j2';
                 if (j2Last && j2Last.length > 2 && betLower.includes(j2Last)) return 'j2';
                 return null;
             };
@@ -946,9 +955,9 @@
                 // Find which player
                 const player = findPlayerInBet();
                 if (player === 'j1') {
-                    detail = j1.split(' ')[0] + ' ' + hdpValue;
+                    detail = getLastName(j1) + ' ' + hdpValue;
                 } else if (player === 'j2') {
-                    detail = j2.split(' ')[0] + ' ' + hdpValue;
+                    detail = getLastName(j2) + ' ' + hdpValue;
                 } else {
                     detail = hdpValue;
                 }
@@ -1092,7 +1101,8 @@
             rawDisplayEl.insertAdjacentElement('afterend', confirmMsg);
 
             // Show PS3838 button with player name
-            ps3838PlayerName = j1.split(' ')[0]; // Prend le nom de famille de J1 (avant l'initiale)
+            // getLastName: "Van de Zandschulp B." -> "Van de Zandschulp"
+            ps3838PlayerName = getLastName(j1);
             const ps3838Container = document.getElementById('ps3838BtnContainer');
             const ps3838Btn = document.getElementById('ps3838Btn');
             ps3838Btn.textContent = 'Ouvrir PS3838 (' + ps3838PlayerName + ')';
@@ -1702,7 +1712,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v47 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v48 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
