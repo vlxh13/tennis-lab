@@ -394,8 +394,14 @@
             <!-- Message brut Telegram (affiché après import) -->
             <div id="telegramRawDisplay" style="display:none;margin-bottom:1rem;padding:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.75rem;color:var(--muted);white-space:pre-wrap;max-height:120px;overflow-y:auto">
             </div>
-            <!-- Bouton PS3838 (affiché après import) -->
+            <!-- Bouton PS3838 + infos pari (affiché après import) -->
             <div id="ps3838BtnContainer" style="display:none;margin-bottom:.75rem">
+                <!-- Bloc infos permanent -->
+                <div id="ps3838InfoBlock" style="background:var(--bg);border:2px solid var(--blue);border-radius:8px;padding:.75rem;margin-bottom:.5rem">
+                    <div style="font-size:1.1rem;font-weight:700;color:var(--green);margin-bottom:.25rem" id="ps3838InfoPlayer">Joueur</div>
+                    <div style="font-size:.95rem;color:var(--yellow);margin-bottom:.25rem" id="ps3838InfoType">Over 22.5 jeux</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--blue)" id="ps3838InfoMise">42€</div>
+                </div>
                 <button class="btn btn-sm" id="ps3838Btn" style="background:#1e3a5f;color:#fff;width:100%" onclick="openPS3838()">Ouvrir PS3838</button>
             </div>
 
@@ -1126,9 +1132,14 @@
                 mise: miseEuros
             };
 
+            // Update permanent info block
+            document.getElementById('ps3838InfoPlayer').textContent = ps3838PlayerName;
+            document.getElementById('ps3838InfoType').textContent = typeLabels[type];
+            document.getElementById('ps3838InfoMise').textContent = miseEuros;
+
             const ps3838Container = document.getElementById('ps3838BtnContainer');
             const ps3838Btn = document.getElementById('ps3838Btn');
-            ps3838Btn.textContent = 'Ouvrir PS3838 (' + ps3838PlayerName + ')';
+            ps3838Btn.textContent = 'Ouvrir PS3838';
             ps3838Container.style.display = 'block';
 
             // Remove highlight when user changes odds
@@ -1330,18 +1341,12 @@
         let ps3838BetInfo = { player: '', betType: '', mise: '' };
 
         function openPS3838() {
-            // v50: Copier SEULEMENT le nom du joueur (pour la recherche PS3838)
-            // Afficher un toast large avec toutes les infos (type + mise)
+            // v51: Les infos sont deja visibles dans le bloc permanent
+            // On copie juste le nom du joueur et on ouvre PS3838
             const playerName = ps3838BetInfo.player || ps3838PlayerName || '';
-            const betType = ps3838BetInfo.betType || '';
-            const mise = ps3838BetInfo.mise || '';
 
             if (playerName) {
-                navigator.clipboard.writeText(playerName).then(() => {
-                    // Toast large avec toutes les infos (4 secondes)
-                    const toastHtml = `<span class="toast-player">${playerName}</span> | <span class="toast-type">${betType}</span> | <span class="toast-mise">${mise}</span>`;
-                    showToast(toastHtml, 4000, true);
-                }).catch(() => {
+                navigator.clipboard.writeText(playerName).catch(() => {
                     // Fallback for iOS/older browsers - try execCommand
                     const textarea = document.createElement('textarea');
                     textarea.value = playerName;
@@ -1351,17 +1356,14 @@
                     textarea.select();
                     try {
                         document.execCommand('copy');
-                        const toastHtml = `<span class="toast-player">${playerName}</span> | <span class="toast-type">${betType}</span> | <span class="toast-mise">${mise}</span>`;
-                        showToast(toastHtml, 4000, true);
                     } catch (e) {
-                        // Si clipboard fail, juste afficher les infos
-                        showToast(`${playerName} | ${betType} | ${mise}`, 4000, true);
+                        // Ignore copy failure - infos are visible in the block
                     }
                     document.body.removeChild(textarea);
                 });
             }
-            // Open PS3838 tennis page
-            window.open('https://www.ps3838.com/en/sports/tennis', '_blank');
+            // Open PS3838 tennis page in same window (mobile-friendly)
+            window.location.href = 'https://www.ps3838.com/en/sports/tennis';
         }
 
         // ==================== RESOLVE BET ====================
@@ -1761,7 +1763,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v50 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v51 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
