@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Revue de Presse</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: env(safe-area-inset-top, 20px);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .date {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .refresh-btn {
+            background: #4a4a6a;
+            border: none;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .refresh-btn:active {
+            background: #5a5a7a;
+        }
+
+        .category {
+            margin-bottom: 24px;
+        }
+
+        .category-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .article {
+            background: #252542;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .article:active {
+            background: #303055;
+        }
+
+        .article-header {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .article-num {
+            background: #4a4a6a;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .article-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .article-desc {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .article-source {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #3a2020;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            color: #f88;
+        }
+
+        .deep-dive-hint {
+            background: #1e3a5f;
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 24px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #8bc;
+        }
+
+        .category-emoji {
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📰 Revue de Presse</h1>
+        <div class="date" id="dateDisplay">Chargement...</div>
+        <button class="refresh-btn" onclick="loadNews()">🔄 Actualiser</button>
+    </header>
+
+    <main id="content">
+        <div class="loading">Chargement des actualités...</div>
+    </main>
+
+    <div class="deep-dive-hint">
+        💡 Pour approfondir un sujet, note le numéro et demande à Claude Code ou Claude App
+    </div>
+
+    <script>
+        const CATEGORIES = {
+            'FRANCE': '🇫🇷',
+            'INTERNATIONAL': '🌍',
+            'ÉCONOMIE': '💰',
+            'SOCIÉTÉ': '👥',
+            'SPORT': '⚽',
+            'CULTURE': '🎭',
+            'TECH': '💻'
+        };
+
+        const CATEGORY_ORDER = ['FRANCE', 'INTERNATIONAL', 'ÉCONOMIE', 'SOCIÉTÉ', 'SPORT', 'CULTURE', 'TECH'];
+
+        function getToday() {
+            const d = new Date();
+            return d.toISOString().split('T')[0];
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return d.toLocaleDateString('fr-FR', options);
+        }
+
+        async function loadNews() {
+            const content = document.getElementById('content');
+            const dateDisplay = document.getElementById('dateDisplay');
+
+            content.innerHTML = '<div class="loading">Chargement des actualités...</div>';
+
+            const today = getToday();
+            const jsonUrl = `actu_${today}.json`;
+
+            try {
+                const response = await fetch(jsonUrl + '?t=' + Date.now());
+                if (!response.ok) {
+                    throw new Error('Fichier non trouvé');
+                }
+
+                const articles = await response.json();
+                dateDisplay.textContent = formatDate(today);
+
+                renderArticles(articles);
+            } catch (e) {
+                // Essayer la veille
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+                try {
+                    const response = await fetch(`actu_${yesterdayStr}.json?t=` + Date.now());
+                    if (response.ok) {
+                        const articles = await response.json();
+                        dateDisplay.textContent = formatDate(yesterdayStr) + ' (hier)';
+                        renderArticles(articles);
+                        return;
+                    }
+                } catch (e2) {}
+
+                content.innerHTML = `
+                    <div class="error">
+                        Pas d'actualités disponibles pour aujourd'hui.<br><br>
+                        Lance <code>python fetch_actu.py</code> pour générer.
+                    </div>
+                `;
+            }
+        }
+
+        function renderArticles(articles) {
+            const content = document.getElementById('content');
+
+            // Grouper par catégorie
+            const byCategory = {};
+            Object.entries(articles).forEach(([num, article]) => {
+                const cat = article.category || 'AUTRE';
+                if (!byCategory[cat]) byCategory[cat] = [];
+                byCategory[cat].push({ num, ...article });
+            });
+
+            let html = '';
+
+            CATEGORY_ORDER.forEach(cat => {
+                if (!byCategory[cat] || byCategory[cat].length === 0) return;
+
+                const emoji = CATEGORIES[cat] || '📰';
+                html += `
+                    <div class="category">
+                        <div class="category-title">
+                            <span class="category-emoji">${emoji}</span>
+                            ${cat}
+                        </div>
+                `;
+
+                byCategory[cat].forEach(article => {
+                    html += `
+                        <div class="article" onclick="openArticle('${encodeURIComponent(article.url)}')">
+                            <div class="article-header">
+                                <span class="article-num">${article.num}</span>
+                                <span class="article-title">${escapeHtml(article.title)}</span>
+                            </div>
+                            ${article.description ? `<div class="article-desc">${escapeHtml(article.description)}</div>` : ''}
+                            <div class="article-source">${escapeHtml(article.source || '')}</div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+            });
+
+            content.innerHTML = html || '<div class="error">Aucun article trouvé</div>';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function openArticle(encodedUrl) {
+            const url = decodeURIComponent(encodedUrl);
+            if (url && url !== 'undefined') {
+                window.open(url, '_blank');
+            }
+        }
+
+        // Charger au démarrage
+        loadNews();
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(e => console.log('SW error:', e));
+        }
+    </script>
+</body>
+</html>
