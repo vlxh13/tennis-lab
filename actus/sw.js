@@ -1,4 +1,4 @@
-const CACHE_NAME = 'actus-v2';
+const CACHE_NAME = 'actus-v2.1';
 const STATIC_ASSETS = [
     './',
     './index.html',
