@@ -197,30 +197,31 @@
             opacity: 0.8;
         }
 
-        .version {
-            text-align: center;
-            color: #444;
-            font-size: 0.7rem;
-            margin-top: 20px;
-            padding-bottom: 40px;
+        .header-actions {
             display: flex;
-            align-items: center;
-            justify-content: center;
             gap: 10px;
+            justify-content: center;
+            margin-top: 12px;
         }
 
         .maj-btn {
             background: #3a3a5a;
             border: none;
             color: #888;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.7rem;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
             cursor: pointer;
         }
 
         .maj-btn:active {
             background: #4a4a6a;
+        }
+
+        .version-header {
+            color: #444;
+            font-size: 0.7rem;
+            margin-top: 8px;
         }
     </style>
 </head>
@@ -228,17 +229,16 @@
     <header>
         <h1>📰 Revue de Presse</h1>
         <div class="date" id="dateDisplay">Chargement...</div>
-        <button class="refresh-btn" onclick="loadNews()">🔄 Actualiser</button>
+        <div class="header-actions">
+            <button class="refresh-btn" onclick="loadNews()">🔄 Actualiser</button>
+            <button class="maj-btn" onclick="forceUpdate()">⚙️ MAJ</button>
+        </div>
+        <div class="version-header">v2.3</div>
     </header>
 
     <main id="content">
         <div class="loading">Chargement des actualités...</div>
     </main>
-
-    <div class="version">
-        v2.2 — Deep Press
-        <button class="maj-btn" onclick="forceUpdate()">🔄 MAJ</button>
-    </div>
 
     <div class="toast" id="toast"></div>
 
