@@ -1362,8 +1362,8 @@
                     document.body.removeChild(textarea);
                 });
             }
-            // Open PS3838 tennis page in same window (mobile-friendly)
-            window.location.href = 'https://www.ps3838.com/en/sports/tennis';
+            // Open PS3838 tennis page in new tab (keeps form data)
+            window.open('https://www.ps3838.com/en/sports/tennis', '_blank');
         }
 
         // ==================== RESOLVE BET ====================
@@ -1763,7 +1763,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v52 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v53 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
