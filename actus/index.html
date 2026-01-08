@@ -76,12 +76,6 @@
             border-radius: 12px;
             padding: 14px;
             margin-bottom: 10px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .article:active {
-            background: #303055;
         }
 
         .article-header {
@@ -119,6 +113,42 @@
             margin-top: 8px;
         }
 
+        .article-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #3a3a5a;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-source {
+            background: #3a3a5a;
+            color: #fff;
+        }
+
+        .btn-deep {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            color: #1a1a2e;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -133,18 +163,46 @@
             color: #f88;
         }
 
-        .deep-dive-hint {
-            background: #1e3a5f;
-            padding: 16px;
-            border-radius: 12px;
-            margin-top: 24px;
-            text-align: center;
-            font-size: 0.85rem;
-            color: #8bc;
-        }
-
         .category-emoji {
             font-size: 1.2rem;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #00ff88;
+            color: #1a1a2e;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast-sub {
+            font-weight: 400;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            opacity: 0.8;
+        }
+
+        .version {
+            text-align: center;
+            color: #444;
+            font-size: 0.7rem;
+            margin-top: 20px;
+            padding-bottom: 40px;
         }
     </style>
 </head>
@@ -159,9 +217,9 @@
         <div class="loading">Chargement des actualités...</div>
     </main>
 
-    <div class="deep-dive-hint">
-        💡 Pour approfondir un sujet, note le numéro et demande à Claude Code ou Claude App
-    </div>
+    <div class="version">v2 — Tap "Creuser" pour deep search via Claude</div>
+
+    <div class="toast" id="toast"></div>
 
     <script>
         const CATEGORIES = {
@@ -176,6 +234,9 @@
 
         const CATEGORY_ORDER = ['FRANCE', 'INTERNATIONAL', 'ÉCONOMIE', 'SOCIÉTÉ', 'SPORT', 'CULTURE', 'TECH'];
 
+        // Store articles globally for deep search
+        let articlesData = {};
+
         function getToday() {
             const d = new Date();
             return d.toISOString().split('T')[0];
@@ -185,6 +246,13 @@
             const d = new Date(dateStr);
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             return d.toLocaleDateString('fr-FR', options);
+        }
+
+        function showToast(message, sub) {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = message + (sub ? `<div class="toast-sub">${sub}</div>` : '');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
         async function loadNews() {
@@ -203,6 +271,7 @@
                 }
 
                 const articles = await response.json();
+                articlesData = articles;
                 dateDisplay.textContent = formatDate(today);
 
                 renderArticles(articles);
@@ -216,6 +285,7 @@
                     const response = await fetch(`actu_${yesterdayStr}.json?t=` + Date.now());
                     if (response.ok) {
                         const articles = await response.json();
+                        articlesData = articles;
                         dateDisplay.textContent = formatDate(yesterdayStr) + ' (hier)';
                         renderArticles(articles);
                         return;
@@ -257,14 +327,23 @@
                 `;
 
                 byCategory[cat].forEach(article => {
+                    const encodedUrl = encodeURIComponent(article.url || '');
                     html += `
-                        <div class="article" onclick="openArticle('${encodeURIComponent(article.url)}')">
+                        <div class="article">
                             <div class="article-header">
                                 <span class="article-num">${article.num}</span>
                                 <span class="article-title">${escapeHtml(article.title)}</span>
                             </div>
                             ${article.description ? `<div class="article-desc">${escapeHtml(article.description)}</div>` : ''}
                             <div class="article-source">${escapeHtml(article.source || '')}</div>
+                            <div class="article-actions">
+                                <button class="action-btn btn-source" onclick="openArticle('${encodedUrl}')">
+                                    📰 Source
+                                </button>
+                                <button class="action-btn btn-deep" onclick="deepSearch('${article.num}')">
+                                    🔍 Creuser
+                                </button>
+                            </div>
                         </div>
                     `;
                 });
@@ -287,6 +366,64 @@
             if (url && url !== 'undefined') {
                 window.open(url, '_blank');
             }
+        }
+
+        function deepSearch(num) {
+            const article = articlesData[num];
+            if (!article) {
+                showToast('Article non trouvé');
+                return;
+            }
+
+            // Générer le prompt deep search
+            const prompt = `Creuse ce sujet pour moi.
+
+Titre : ${article.title}
+Contexte : ${article.description || 'Pas de description disponible'}
+
+Fais une recherche web approfondie :
+1. Lance WebSearch sur 2-3 angles différents du sujet
+2. Approfondit avec WebFetch sur les meilleures sources (max 3)
+3. Synthétise en 10-20 phrases claires et précises
+4. Liste toutes les sources en markdown
+
+Tonalité : factuel, direct, pas de fluff. Focus sur ce qui a changé, pourquoi, impact.
+Format sources : [Titre](URL)`;
+
+            // Copier dans le presse-papier
+            navigator.clipboard.writeText(prompt).then(() => {
+                showToast('✅ Prompt copié !', 'Ouvre Claude et colle');
+
+                // Essayer d'ouvrir l'app Claude après un court délai
+                setTimeout(() => {
+                    // Tenter différents URL schemes
+                    window.location.href = 'claude://';
+                }, 500);
+            }).catch(err => {
+                // Fallback pour iOS si clipboard échoue
+                showToast('📋 Appuie longuement pour copier', article.title.substring(0, 40) + '...');
+
+                // Créer un textarea temporaire pour sélection manuelle
+                const ta = document.createElement('textarea');
+                ta.value = prompt;
+                ta.style.position = 'fixed';
+                ta.style.top = '50%';
+                ta.style.left = '10%';
+                ta.style.width = '80%';
+                ta.style.height = '200px';
+                ta.style.zIndex = '9999';
+                ta.style.background = '#252542';
+                ta.style.color = '#fff';
+                ta.style.border = '2px solid #00ff88';
+                ta.style.borderRadius = '12px';
+                ta.style.padding = '12px';
+                ta.style.fontSize = '12px';
+                document.body.appendChild(ta);
+                ta.select();
+
+                // Supprimer après 5 secondes
+                setTimeout(() => ta.remove(), 5000);
+            });
         }
 
         // Charger au démarrage
