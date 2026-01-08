@@ -1015,13 +1015,13 @@
                 }
             }
             // 4. OVER/UNDER GAMES (JEUX)
-            // Formats: "Over 22.5 games", "O 22.5", "Total games Over 22.5", "+22.5 games"
+            // Formats: "Over 22.5 games", "O 22.5", "Total games Over 22.5", "+22.5 games", "-22 games"
             // If no "sets" mentioned, default to games
-            else if (betLower.includes('over') || (betLower.match(/\bo\b/) && !betLower.includes('score')) || betLower.startsWith('o ') || betLower.includes(' o ')) {
+            else if (betLower.includes('over') || (betLower.match(/\bo\b/) && !betLower.includes('score')) || betLower.startsWith('o ') || betLower.includes(' o ') || (bet.match(/\+\s*\d/) && betLower.includes('game'))) {
                 type = 'over_jeux';
                 detail = extractNumber(bet);
             }
-            else if (betLower.includes('under') || betLower.match(/\bu\b/) || betLower.startsWith('u ') || betLower.includes(' u ')) {
+            else if (betLower.includes('under') || betLower.match(/\bu\b/) || betLower.startsWith('u ') || betLower.includes(' u ') || (bet.match(/-\s*\d/) && betLower.includes('game'))) {
                 type = 'under_jeux';
                 detail = extractNumber(bet);
             }
@@ -1763,7 +1763,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v53 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v54 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
