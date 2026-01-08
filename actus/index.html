@@ -236,7 +236,7 @@
     </main>
 
     <div class="version">
-        v2.1
+        v2.2 — Deep Press
         <button class="maj-btn" onclick="forceUpdate()">🔄 MAJ</button>
     </div>
 
@@ -396,20 +396,69 @@
                 return;
             }
 
-            // Générer le prompt deep search
-            const prompt = `Creuse ce sujet pour moi.
+            // Générer le prompt deep search (DEEP PRESS by L'Architecte)
+            const prompt = `Tu es un journaliste d'investigation. Ta mission : produire un article de fond sur ce sujet.
 
+## SUJET
 Titre : ${article.title}
-Contexte : ${article.description || 'Pas de description disponible'}
+Contexte initial : ${article.description || 'Pas de contexte disponible'}
 
-Fais une recherche web approfondie :
-1. Lance WebSearch sur 2-3 angles différents du sujet
-2. Approfondit avec WebFetch sur les meilleures sources (max 3)
-3. Synthétise en 10-20 phrases claires et précises
-4. Liste toutes les sources en markdown
+## PROTOCOLE DE RECHERCHE (OBLIGATOIRE)
 
-Tonalité : factuel, direct, pas de fluff. Focus sur ce qui a changé, pourquoi, impact.
-Format sources : [Titre](URL)`;
+### Étape 1 — Collecte massive
+Lance WebSearch sur 4-5 angles différents :
+- L'événement factuel (qui, quoi, quand, où)
+- Les causes / le contexte historique
+- Les réactions officielles et politiques
+- Les analyses d'experts ou éditorialistes
+- Les conséquences attendues
+
+### Étape 2 — Approfondissement
+Utilise WebFetch sur les 5-6 meilleures sources trouvées. Privilégie :
+- Agences de presse (AFP, Reuters, AP)
+- Quotidiens de référence (Le Monde, NYT, Guardian)
+- Médias spécialisés selon le sujet
+
+### Étape 3 — Vérification croisée
+Ne retiens une information QUE si elle apparaît dans au moins 2 sources distinctes.
+En cas de contradiction entre sources, mentionne-le explicitement.
+
+## FORMAT DE L'ARTICLE
+
+Structure journalistique classique :
+
+**CHAPÔ** (2-3 phrases)
+L'essentiel en ouverture. Accroche + fait central.
+
+**CONTEXTE** (1 paragraphe)
+Ce qu'il faut savoir pour comprendre. Historique si pertinent.
+
+**DÉVELOPPEMENT** (3-5 paragraphes)
+Les faits détaillés, les acteurs, les enjeux. Citations si disponibles.
+Chaque affirmation doit pouvoir être rattachée à une source.
+
+**RÉACTIONS** (1-2 paragraphes)
+Ce qu'en disent les parties prenantes, les experts, l'opposition.
+
+**PERSPECTIVES** (1 paragraphe)
+Et maintenant ? Que surveiller ? Prochaines étapes.
+
+## RÈGLES ABSOLUES
+
+1. **ZÉRO HALLUCINATION** — Si tu ne trouves pas l'info, écris "Information non confirmée dans les sources consultées"
+2. **SOURCING SYSTÉMATIQUE** — Chaque section doit mentionner d'où vient l'info
+3. **TONALITÉ** — Factuel, précis, sobre. Pas de sensationnalisme, pas d'opinion personnelle.
+4. **LONGUEUR** — Minimum 800 mots. C'est un article de fond, pas une brève.
+
+## SOURCES (OBLIGATOIRE EN FIN D'ARTICLE)
+
+Liste complète en markdown :
+- [Titre de l'article](URL) — Source, date si dispo
+(Minimum 5 sources, idéal 6-8)
+
+---
+
+Commence par ta recherche. Prends ton temps. La qualité prime sur la vitesse.`;
 
             // Copier dans le presse-papier
             navigator.clipboard.writeText(prompt).then(() => {
