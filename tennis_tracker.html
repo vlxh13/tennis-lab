@@ -126,6 +126,26 @@
         .btn-green { background: var(--green); color: #000; }
         .btn-red { background: var(--red); color: #fff; }
         .btn-secondary { background: var(--border); color: var(--text); }
+        /* Period tabs & stats */
+        .period-tab { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+        .period-tab.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+        .period-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .6rem .75rem;
+            background: var(--bg);
+            border-radius: 6px;
+            margin-bottom: .4rem;
+            font-size: .85rem;
+        }
+        .period-row .period-label { color: var(--text); font-weight: 500; }
+        .period-row .period-stats { display: flex; gap: 1rem; align-items: center; }
+        .period-row .period-pnl { font-weight: 700; min-width: 70px; text-align: right; }
+        .period-row .period-detail { font-size: .7rem; color: var(--muted); }
+        .period-row.positive { border-left: 3px solid var(--green); }
+        .period-row.negative { border-left: 3px solid var(--red); }
+        .period-row.neutral { border-left: 3px solid var(--border); }
         .mise-display {
             background: var(--bg);
             border: 1px solid var(--green);
@@ -480,8 +500,20 @@
 
     <!-- Section Historique -->
     <div class="section" id="section-history">
+        <!-- Stats par période -->
         <div class="card">
-            <div class="card-title">Historique</div>
+            <div class="card-title">Performance par période</div>
+            <div class="period-tabs" style="display:flex;gap:.5rem;margin-bottom:.75rem">
+                <button class="btn btn-sm period-tab active" onclick="showPeriod('day')" id="tabDay">Par jour</button>
+                <button class="btn btn-sm period-tab" onclick="showPeriod('month')" id="tabMonth">Par mois</button>
+            </div>
+            <div id="periodStats">
+                <div class="no-data">Aucune donnée</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Tous les paris</div>
             <div style="margin-bottom:.75rem;display:flex;gap:.5rem">
                 <button class="btn btn-sm btn-secondary" onclick="exportCSV()">Export CSV</button>
                 <button class="btn btn-sm" style="background:var(--blue);color:#fff" onclick="document.getElementById('csvImport').click()">Import CSV</button>
@@ -716,6 +748,7 @@
             // Render lists
             renderPending();
             renderHistory();
+            renderPeriodStats();
             updateMisePreview();
         }
 
@@ -1502,6 +1535,85 @@
             `}).join('');
         }
 
+        // ==================== PERIOD STATS ====================
+        let currentPeriodView = 'day';
+
+        function showPeriod(type) {
+            currentPeriodView = type;
+            document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(type === 'day' ? 'tabDay' : 'tabMonth').classList.add('active');
+            renderPeriodStats();
+        }
+
+        function renderPeriodStats() {
+            const container = document.getElementById('periodStats');
+            if (state.history.length === 0) {
+                container.innerHTML = '<div class="no-data">Aucune donnée</div>';
+                return;
+            }
+
+            // Group by period
+            const groups = {};
+            state.history.forEach(b => {
+                const date = b.resolvedDate || b.date;
+                let key;
+                if (currentPeriodView === 'day') {
+                    key = date; // YYYY-MM-DD
+                } else {
+                    key = date.substring(0, 7); // YYYY-MM
+                }
+                if (!groups[key]) {
+                    groups[key] = { pnl: 0, pnlUnits: 0, wins: 0, losses: 0, bets: [] };
+                }
+                groups[key].pnl += b.pnl;
+                groups[key].pnlUnits += b.pnlUnits || 0;
+                if (b.won) groups[key].wins++;
+                else groups[key].losses++;
+                groups[key].bets.push(b);
+            });
+
+            // Sort by date desc
+            const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+            // Format date for display
+            const formatLabel = (key) => {
+                if (currentPeriodView === 'day') {
+                    const d = new Date(key);
+                    const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+                    return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
+                } else {
+                    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                    const [y, m] = key.split('-');
+                    return months[parseInt(m) - 1] + ' ' + y;
+                }
+            };
+
+            let html = '';
+            sortedKeys.forEach(key => {
+                const g = groups[key];
+                const pnlClass = g.pnl > 0 ? 'positive' : (g.pnl < 0 ? 'negative' : 'neutral');
+                const pnlColor = g.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+                const pnlSign = g.pnl >= 0 ? '+' : '';
+                const total = g.wins + g.losses;
+                const winrate = total > 0 ? (g.wins / total * 100).toFixed(0) : 0;
+
+                html += `
+                    <div class="period-row ${pnlClass}">
+                        <div>
+                            <div class="period-label">${formatLabel(key)}</div>
+                            <div class="period-detail">${g.wins}W/${g.losses}L (${winrate}%)</div>
+                        </div>
+                        <div class="period-stats">
+                            <div class="period-detail">${pnlSign}${g.pnlUnits.toFixed(2)}u</div>
+                            <div class="period-pnl" style="color:${pnlColor}">${pnlSign}${g.pnl.toFixed(2)}€</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
         // ==================== CHART ====================
         function renderChart() {
             if (state.history.length === 0) return;
@@ -1763,7 +1875,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v54 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v55 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
