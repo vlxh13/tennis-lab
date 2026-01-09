@@ -1,9 +1,17 @@
-const CACHE_NAME = 'actus-v2.3';
+const CACHE_VERSION = 'v3.0';
+const CACHE_NAME = 'actus-' + CACHE_VERSION;
 const STATIC_ASSETS = [
-    './',
-    './index.html',
-    './manifest.json'
+    './manifest.json',
+    './icon-192.png',
+    './icon-512.png'
 ];
+
+// Date du dernier accès (pour invalidation quotidienne)
+let lastAccessDate = null;
+
+function getTodayStr() {
+    return new Date().toISOString().split('T')[0];
+}
 
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -23,9 +31,25 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
+    const today = getTodayStr();
 
-    // Pour les fichiers JSON d'actus, toujours aller au réseau d'abord
-    if (url.pathname.includes('actu_') && url.pathname.endsWith('.json')) {
+    // Vérifier si on a changé de jour — invalider le cache des actus
+    if (lastAccessDate && lastAccessDate !== today) {
+        caches.open(CACHE_NAME).then(cache => {
+            cache.keys().then(requests => {
+                requests.forEach(req => {
+                    if (req.url.includes('actu_') || req.url.includes('index.html')) {
+                        cache.delete(req);
+                    }
+                });
+            });
+        });
+    }
+    lastAccessDate = today;
+
+    // Pour index.html et les fichiers JSON d'actus, toujours réseau d'abord
+    if (url.pathname.endsWith('index.html') || url.pathname.endsWith('/') ||
+        (url.pathname.includes('actu_') && url.pathname.endsWith('.json'))) {
         event.respondWith(
             fetch(event.request)
                 .then(response => {
@@ -38,7 +62,7 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // Pour le reste, cache first
+    // Pour le reste (manifest, icônes), cache first
     event.respondWith(
         caches.match(event.request).then(cached => cached || fetch(event.request))
     );
