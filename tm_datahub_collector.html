@@ -1766,7 +1766,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 // Bouton actif si complet OU récent (tournoi terminé mais < 2 jours)
                 var canCalculate = t.isComplete || t.status === 'récent';
                 var actionBtn = canCalculate ?
-                    '<button class="btn btn-secondary" style="padding:0.3rem 0.5rem;font-size:0.7rem" onclick="calculateRoundsForOne('" + t.name + '_' + t.year + "')">🔄 Calc</button>' :
+                    '<button class="btn btn-secondary" style="padding:0.3rem 0.5rem;font-size:0.7rem" onclick="calculateRoundsForOne(\'' + t.name + '_' + t.year + '\')">🔄 Calc</button>' :
                     '<span style="color:var(--muted);font-size:0.7rem">En attente</span>';
 
                 return '<tr>' +
