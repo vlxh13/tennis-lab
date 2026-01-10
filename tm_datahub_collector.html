@@ -1268,10 +1268,13 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             var select = document.getElementById('filterTournament');
             var currentValue = select.value;
 
-            // Get unique tournaments
+            // Get unique tournaments FILTERED BY CIRCUIT
             var tournaments = [];
             var seen = {};
             database.forEach(function(m) {
+                // Filtrer par circuit sélectionné
+                if (currentFilter !== 'all' && m.circuit !== currentFilter) return;
+
                 if (m.tournament_clean && !seen[m.tournament_clean]) {
                     seen[m.tournament_clean] = true;
                     tournaments.push(m.tournament_clean);
@@ -1280,15 +1283,21 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             tournaments.sort();
 
             // Rebuild options
-            select.innerHTML = '<option value="all">📍 Tous les tournois (' + tournaments.length + ')</option>';
+            var circuitLabel = currentFilter === 'all' ? 'Tous' : currentFilter;
+            select.innerHTML = '<option value="all">📍 ' + circuitLabel + ' - ' + tournaments.length + ' tournois</option>';
             tournaments.forEach(function(t) {
-                var count = database.filter(function(m) { return m.tournament_clean === t; }).length;
+                var count = database.filter(function(m) {
+                    if (currentFilter !== 'all' && m.circuit !== currentFilter) return false;
+                    return m.tournament_clean === t;
+                }).length;
                 select.innerHTML += '<option value="' + t + '">' + t + ' (' + count + ')</option>';
             });
 
-            // Restore selection
+            // Restore selection only if still valid
             if (currentValue && select.querySelector('option[value="' + currentValue + '"]')) {
                 select.value = currentValue;
+            } else {
+                select.value = 'all';
             }
         }
 
@@ -1357,28 +1366,11 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             // Update circuit stats (pour afficher la sélection)
             updateCircuitStats();
             // Update tournaments filter dropdown
-            updateTournamentFilter();
+            populateTournamentFilter();
             // Apply filters to data view
             applyFilters();
             // Update tournaments table
             updateTournamentsTable();
-        }
-
-        function updateTournamentFilter() {
-            // Met à jour le dropdown des tournois selon le circuit sélectionné
-            var tournaments = {};
-            database.forEach(function(m) {
-                if (currentFilter !== 'all' && m.circuit !== currentFilter) return;
-                tournaments[m.tournament_clean] = true;
-            });
-            var select = document.getElementById('filterTournament');
-            var currentVal = select.value;
-            select.innerHTML = '<option value="all">Tous les tournois</option>';
-            Object.keys(tournaments).sort().forEach(function(t) {
-                select.innerHTML += '<option value="' + t + '">' + t + '</option>';
-            });
-            // Restore selection if still valid
-            if (tournaments[currentVal]) select.value = currentVal;
         }
 
         // ==================== EXPORT/IMPORT ====================
