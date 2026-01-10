@@ -228,12 +228,12 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
         }
         th {
             text-align: left;
-            padding: 0.5rem;
-            font-size: 0.65rem;
+            padding: 0.6rem;
+            font-size: 0.75rem;
             color: var(--muted);
             text-transform: uppercase;
             border-bottom: 1px solid var(--border);
@@ -242,11 +242,88 @@
             background: var(--card);
         }
         td {
-            padding: 0.5rem;
+            padding: 0.6rem;
             border-bottom: 1px solid var(--border);
         }
         tr:hover {
             background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Match Cards */
+        .match-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .match-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.9rem;
+        }
+        .match-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .match-card-tournament {
+            font-weight: 600;
+            color: var(--orange);
+        }
+        .match-card-meta {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .match-card-players {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .match-card-players .winner {
+            color: var(--green);
+        }
+        .match-card-players .loser {
+            color: var(--muted);
+        }
+        .match-card-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: var(--blue);
+            margin-bottom: 0.5rem;
+        }
+        .match-card-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .match-card-odds {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Filters */
+        .filter-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        .filter-select {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.85rem;
+            font-family: inherit;
+            min-width: 140px;
         }
         .mono {
             font-family: 'JetBrains Mono', monospace;
@@ -438,31 +515,33 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
     <div id="tabData" class="card" style="display:none">
         <div class="card-title">📊 Base de données (<span id="dataCount">0</span> matchs)</div>
 
-        <!-- Filters -->
-        <div class="form-row" style="margin-bottom:1rem">
+        <!-- Filters Row 1: Circuit -->
+        <div class="filter-row">
             <button class="btn btn-secondary" onclick="filterCircuit('all')" id="filterAll">Tous</button>
             <button class="btn btn-secondary" onclick="filterCircuit('ATP')" id="filterATP">ATP</button>
             <button class="btn btn-secondary" onclick="filterCircuit('WTA')" id="filterWTA">WTA</button>
             <button class="btn btn-secondary" onclick="filterCircuit('Challenger')" id="filterChallenger">Challenger</button>
         </div>
 
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Circuit</th>
-                        <th>Tournoi</th>
-                        <th>Round</th>
-                        <th>Surface</th>
-                        <th>Match</th>
-                        <th>Score</th>
-                        <th>Cotes</th>
-                    </tr>
-                </thead>
-                <tbody id="dataTable"></tbody>
-            </table>
+        <!-- Filters Row 2: Tournament + Round -->
+        <div class="filter-row">
+            <select class="filter-select" id="filterTournament" onchange="applyFilters()">
+                <option value="all">📍 Tous les tournois</option>
+            </select>
+            <select class="filter-select" id="filterRound" onchange="applyFilters()">
+                <option value="all">🎯 Tous les rounds</option>
+                <option value="F">Finale</option>
+                <option value="SF">Demi-finale</option>
+                <option value="QF">Quart</option>
+                <option value="R16">1/8</option>
+                <option value="R32">1/16</option>
+                <option value="R64">1/32</option>
+                <option value="R128">1/64</option>
+            </select>
         </div>
+
+        <!-- Match Cards -->
+        <div class="match-cards" id="matchCards"></div>
     </div>
 
     <!-- Tab: Tournaments -->
@@ -587,7 +666,8 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             // Challengers (défaut Hard, ajuster si connu)
             'canberra': 'Hard', 'playford': 'Hard', 'quimper': 'Indoor Hard',
             'nonthaburi': 'Hard', 'koblenz': 'Indoor Hard', 'rennes': 'Indoor Hard',
-            'cherbourg': 'Indoor Hard', 'orleans': 'Indoor Hard', 'cleveland': 'Indoor Hard'
+            'cherbourg': 'Indoor Hard', 'orleans': 'Indoor Hard', 'cleveland': 'Indoor Hard',
+            'bengaluru': 'Hard', 'nottingham': 'Indoor Hard', 'noumea': 'Hard'
         };
 
         function detectCircuit(tournament) {
@@ -854,44 +934,97 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         }
 
         function updateDataTable() {
-            var tbody = document.getElementById('dataTable');
-            var filtered = currentFilter === 'all' ? database : database.filter(function(m) {
-                return m.circuit === currentFilter;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            var circuitFilter = currentFilter;
+            var tournamentFilter = document.getElementById('filterTournament').value;
+            var roundFilter = document.getElementById('filterRound').value;
+
+            var filtered = database.filter(function(m) {
+                if (circuitFilter !== 'all' && m.circuit !== circuitFilter) return false;
+                if (tournamentFilter !== 'all' && m.tournament_clean !== tournamentFilter) return false;
+                if (roundFilter !== 'all' && m.round !== roundFilter) return false;
+                return true;
             });
 
             document.getElementById('dataCount').textContent = filtered.length;
 
-            // Afficher les 100 premiers
+            // Sort by date desc, then time desc
+            filtered.sort(function(a, b) {
+                if (a.date !== b.date) return b.date.localeCompare(a.date);
+                return (b.time || '').localeCompare(a.time || '');
+            });
+
+            var container = document.getElementById('matchCards');
             var display = filtered.slice(0, 100);
 
-            tbody.innerHTML = display.map(function(m) {
-                var circuitClass = 'badge-' + (m.circuit || 'atp').toLowerCase();
-                var surfaceClass = 'surface-' + (m.surface || 'hard').toLowerCase().replace(' ', '-').replace('indoor-hard', 'indoor');
-                var p1Class = m.winner === m.player1 ? 'winner' : '';
-                var p2Class = m.winner === m.player2 ? 'winner' : '';
-
-                // Round badge
-                var roundBadge = '-';
+            container.innerHTML = display.map(function(m) {
+                var circuitBadge = '<span class="badge badge-' + (m.circuit || 'atp').toLowerCase() + '">' + m.circuit + '</span>';
+                var roundBadge = '';
                 if (m.round) {
                     var roundColors = {
-                        'F': 'var(--green)', 'SF': 'var(--blue)', 'QF': 'var(--orange)',
-                        'R16': 'var(--yellow)', 'R32': 'var(--muted)', 'R64': 'var(--muted)', 'R128': 'var(--muted)'
+                        'F': '#22c55e', 'SF': '#4d9fff', 'QF': '#f97316',
+                        'R16': '#eab308', 'R32': '#888', 'R64': '#888', 'R128': '#888'
                     };
-                    var rColor = roundColors[m.round] || 'var(--muted)';
-                    roundBadge = '<span style="color:' + rColor + ';font-weight:600">' + m.round + '</span>';
+                    roundBadge = '<span style="background:' + (roundColors[m.round] || '#888') + ';color:#000;padding:2px 6px;border-radius:4px;font-size:0.75rem;font-weight:600">' + m.round + '</span>';
                 }
 
-                return '<tr>' +
-                    '<td class="mono">' + m.date.slice(5) + '</td>' +
-                    '<td><span class="badge ' + circuitClass + '">' + m.circuit + '</span></td>' +
-                    '<td>' + m.tournament_clean + '</td>' +
-                    '<td>' + roundBadge + '</td>' +
-                    '<td class="' + surfaceClass + '">' + m.surface + '</td>' +
-                    '<td><span class="' + p1Class + '">' + m.player1 + '</span> vs <span class="' + p2Class + '">' + m.player2 + '</span></td>' +
-                    '<td class="mono">' + m.score + '</td>' +
-                    '<td class="mono">' + (m.odds1 ? m.odds1.toFixed(2) : '-') + '/' + (m.odds2 ? m.odds2.toFixed(2) : '-') + '</td>' +
-                '</tr>';
+                var p1Display = m.winner === m.player1
+                    ? '<span class="winner">' + m.player1 + ' 🏆</span>'
+                    : '<span class="loser">' + m.player1 + '</span>';
+                var p2Display = m.winner === m.player2
+                    ? '<span class="winner">' + m.player2 + ' 🏆</span>'
+                    : '<span class="loser">' + m.player2 + '</span>';
+
+                return '<div class="match-card">' +
+                    '<div class="match-card-header">' +
+                        '<span class="match-card-tournament">' + m.tournament_clean + '</span>' +
+                        '<div class="match-card-meta">' + circuitBadge + ' ' + roundBadge + '</div>' +
+                    '</div>' +
+                    '<div class="match-card-players">' + p1Display + ' vs ' + p2Display + '</div>' +
+                    '<div class="match-card-score">' + m.score + '</div>' +
+                    '<div class="match-card-footer">' +
+                        '<span>' + m.date + ' ' + (m.time || '') + '</span>' +
+                        '<span class="match-card-odds">' + m.surface + ' • ' +
+                            (m.odds1 ? m.odds1.toFixed(2) : '-') + ' / ' +
+                            (m.odds2 ? m.odds2.toFixed(2) : '-') +
+                        '</span>' +
+                    '</div>' +
+                '</div>';
             }).join('');
+
+            // Populate tournament dropdown
+            populateTournamentFilter();
+        }
+
+        function populateTournamentFilter() {
+            var select = document.getElementById('filterTournament');
+            var currentValue = select.value;
+
+            // Get unique tournaments
+            var tournaments = [];
+            var seen = {};
+            database.forEach(function(m) {
+                if (m.tournament_clean && !seen[m.tournament_clean]) {
+                    seen[m.tournament_clean] = true;
+                    tournaments.push(m.tournament_clean);
+                }
+            });
+            tournaments.sort();
+
+            // Rebuild options
+            select.innerHTML = '<option value="all">📍 Tous les tournois (' + tournaments.length + ')</option>';
+            tournaments.forEach(function(t) {
+                var count = database.filter(function(m) { return m.tournament_clean === t; }).length;
+                select.innerHTML += '<option value="' + t + '">' + t + ' (' + count + ')</option>';
+            });
+
+            // Restore selection
+            if (currentValue && select.querySelector('option[value="' + currentValue + '"]')) {
+                select.value = currentValue;
+            }
         }
 
         function updateMissingDays() {
@@ -956,13 +1089,20 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
         function filterCircuit(circuit) {
             currentFilter = circuit;
-            document.querySelectorAll('[id^="filter"]').forEach(function(b) {
-                b.classList.remove('btn-primary');
-                b.classList.add('btn-secondary');
+            // Update button styles
+            ['All', 'ATP', 'WTA', 'Challenger'].forEach(function(c) {
+                var btn = document.getElementById('filter' + c);
+                if (btn) {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-secondary');
+                }
             });
-            document.getElementById('filter' + (circuit === 'all' ? 'All' : circuit)).classList.remove('btn-secondary');
-            document.getElementById('filter' + (circuit === 'all' ? 'All' : circuit)).classList.add('btn-primary');
-            updateDataTable();
+            var activeBtn = document.getElementById('filter' + (circuit === 'all' ? 'All' : circuit));
+            if (activeBtn) {
+                activeBtn.classList.remove('btn-secondary');
+                activeBtn.classList.add('btn-primary');
+            }
+            applyFilters();
         }
 
         // ==================== EXPORT/IMPORT ====================
