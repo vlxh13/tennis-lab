@@ -480,13 +480,36 @@
         </div>
     </div>
 
-    <!-- Circuit breakdown -->
+    <!-- Circuit breakdown (cliquable pour filtrer) -->
     <div class="circuit-stats" id="circuitStats"></div>
+
+    <!-- Filtres + Données (toujours visibles) -->
+    <div class="card" style="padding:0.75rem">
+        <div class="filter-row" style="margin-bottom:0.75rem">
+            <select class="filter-select" id="filterTournament" onchange="applyFilters()">
+                <option value="all">📍 Tous les tournois</option>
+            </select>
+            <select class="filter-select" id="filterRound" onchange="applyFilters()">
+                <option value="all">🎯 Tous les rounds</option>
+                <option value="F">Finale</option>
+                <option value="SF">Demi-finale</option>
+                <option value="QF">Quart</option>
+                <option value="R16">1/8</option>
+                <option value="R32">1/16</option>
+                <option value="R64">1/32</option>
+                <option value="R128">1/64</option>
+                <option value="Q1">Q1</option>
+                <option value="Q2">Q2</option>
+                <option value="Q3">Q3</option>
+            </select>
+            <span style="color:var(--muted);font-size:0.8rem;margin-left:auto" id="dataCount">0</span>
+        </div>
+        <div class="match-cards" id="matchCards"></div>
+    </div>
 
     <!-- Tabs -->
     <div class="tabs">
         <button class="tab active" onclick="setTab('import')">📥 Import</button>
-        <button class="tab" onclick="setTab('data')">📊 Données</button>
         <button class="tab" onclick="setTab('tournaments')">🏆 Tournois</button>
         <button class="tab" onclick="setTab('missing')">⚠️ Manquants</button>
         <button class="tab" onclick="setTab('export')">💾 Export</button>
@@ -513,31 +536,6 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         </div>
 
         <div id="importResult" style="display:none"></div>
-    </div>
-
-    <!-- Tab: Data -->
-    <div id="tabData" class="card" style="display:none">
-        <div class="card-title">📊 Base de données (<span id="dataCount">0</span> matchs)</div>
-
-        <!-- Filters: Tournament + Round (Circuit = badges en haut) -->
-        <div class="filter-row">
-            <select class="filter-select" id="filterTournament" onchange="applyFilters()">
-                <option value="all">📍 Tous les tournois</option>
-            </select>
-            <select class="filter-select" id="filterRound" onchange="applyFilters()">
-                <option value="all">🎯 Tous les rounds</option>
-                <option value="F">Finale</option>
-                <option value="SF">Demi-finale</option>
-                <option value="QF">Quart</option>
-                <option value="R16">1/8</option>
-                <option value="R32">1/16</option>
-                <option value="R64">1/32</option>
-                <option value="R128">1/64</option>
-            </select>
-        </div>
-
-        <!-- Match Cards -->
-        <div class="match-cards" id="matchCards"></div>
     </div>
 
     <!-- Tab: Tournaments -->
@@ -613,7 +611,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         // ==================== STORAGE ====================
         var STORAGE_KEY = 'tm_datahub_collector';
         var database = [];
-        var currentFilter = 'all';
+        var selectedCircuits = ['ATP', 'WTA', 'Challenger']; // Multi-select: tous par défaut
         var currentTab = 'import';
 
         function loadDatabase() {
@@ -1124,25 +1122,35 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             var container = document.getElementById('circuitStats');
             var html = '';
 
-            // Bouton "Tous"
-            var allSelected = currentFilter === 'all';
-            html += '<div class="circuit-badge selectable' + (allSelected ? ' selected' : '') + '" onclick="filterCircuit(\'all\')" style="background:#444;cursor:pointer">Tous: ' + database.length + '</div>';
+            // Boutons par circuit (multi-select toggle)
+            var allCircuits = ['ATP', 'WTA', 'Challenger'];
+            allCircuits.forEach(function(c) {
+                if (!circuits[c]) return;
+                var isSelected = selectedCircuits.indexOf(c) !== -1;
+                var cssClass = c.toLowerCase();
+                html += '<div class="circuit-badge ' + cssClass + ' selectable' + (isSelected ? ' selected' : '') + '" onclick="toggleCircuit(\'' + c + '\')" style="cursor:pointer">' + c + ': ' + circuits[c] + '</div>';
+            });
 
-            // Boutons par circuit
-            if (circuits['ATP']) {
-                var selected = currentFilter === 'ATP';
-                html += '<div class="circuit-badge atp selectable' + (selected ? ' selected' : '') + '" onclick="filterCircuit(\'ATP\')" style="cursor:pointer">ATP: ' + circuits['ATP'] + '</div>';
-            }
-            if (circuits['WTA']) {
-                var selected = currentFilter === 'WTA';
-                html += '<div class="circuit-badge wta selectable' + (selected ? ' selected' : '') + '" onclick="filterCircuit(\'WTA\')" style="cursor:pointer">WTA: ' + circuits['WTA'] + '</div>';
-            }
-            if (circuits['Challenger']) {
-                var selected = currentFilter === 'Challenger';
-                html += '<div class="circuit-badge challenger selectable' + (selected ? ' selected' : '') + '" onclick="filterCircuit(\'Challenger\')" style="cursor:pointer">Challenger: ' + circuits['Challenger'] + '</div>';
-            }
-            if (unmapped > 0) html += '<div class="circuit-badge" style="background:#ef4444;color:#fff">⚠️ ' + unmapped + ' non mappées</div>';
+            if (unmapped > 0) html += '<div class="circuit-badge" style="background:#ef4444;color:#fff">⚠️ ' + unmapped + '</div>';
             container.innerHTML = html;
+        }
+
+        function toggleCircuit(circuit) {
+            var idx = selectedCircuits.indexOf(circuit);
+            if (idx === -1) {
+                // Ajouter
+                selectedCircuits.push(circuit);
+            } else {
+                // Retirer (mais garder au moins 1)
+                if (selectedCircuits.length > 1) {
+                    selectedCircuits.splice(idx, 1);
+                }
+            }
+            // Update tout
+            updateCircuitStats();
+            populateTournamentFilter();
+            applyFilters();
+            updateTournamentsTable();
         }
 
         function updateAlert() {
@@ -1198,12 +1206,12 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         }
 
         function applyFilters() {
-            var circuitFilter = currentFilter;
             var tournamentFilter = document.getElementById('filterTournament').value;
             var roundFilter = document.getElementById('filterRound').value;
 
             var filtered = database.filter(function(m) {
-                if (circuitFilter !== 'all' && m.circuit !== circuitFilter) return false;
+                // Multi-select: vérifier si le circuit est dans la sélection
+                if (selectedCircuits.indexOf(m.circuit) === -1) return false;
                 if (tournamentFilter !== 'all' && m.tournament_clean !== tournamentFilter) return false;
                 if (roundFilter !== 'all' && m.round !== roundFilter) return false;
                 return true;
@@ -1268,12 +1276,12 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             var select = document.getElementById('filterTournament');
             var currentValue = select.value;
 
-            // Get unique tournaments FILTERED BY CIRCUIT
+            // Get unique tournaments FILTERED BY SELECTED CIRCUITS
             var tournaments = [];
             var seen = {};
             database.forEach(function(m) {
-                // Filtrer par circuit sélectionné
-                if (currentFilter !== 'all' && m.circuit !== currentFilter) return;
+                // Multi-select: vérifier si le circuit est sélectionné
+                if (selectedCircuits.indexOf(m.circuit) === -1) return;
 
                 if (m.tournament_clean && !seen[m.tournament_clean]) {
                     seen[m.tournament_clean] = true;
@@ -1283,11 +1291,11 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             tournaments.sort();
 
             // Rebuild options
-            var circuitLabel = currentFilter === 'all' ? 'Tous' : currentFilter;
+            var circuitLabel = selectedCircuits.length === 3 ? 'Tous' : selectedCircuits.join('+');
             select.innerHTML = '<option value="all">📍 ' + circuitLabel + ' - ' + tournaments.length + ' tournois</option>';
             tournaments.forEach(function(t) {
                 var count = database.filter(function(m) {
-                    if (currentFilter !== 'all' && m.circuit !== currentFilter) return false;
+                    if (selectedCircuits.indexOf(m.circuit) === -1) return false;
                     return m.tournament_clean === t;
                 }).length;
                 select.innerHTML += '<option value="' + t + '">' + t + ' (' + count + ')</option>';
@@ -1361,17 +1369,6 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
         }
 
-        function filterCircuit(circuit) {
-            currentFilter = circuit;
-            // Update circuit stats (pour afficher la sélection)
-            updateCircuitStats();
-            // Update tournaments filter dropdown
-            populateTournamentFilter();
-            // Apply filters to data view
-            applyFilters();
-            // Update tournaments table
-            updateTournamentsTable();
-        }
 
         // ==================== EXPORT/IMPORT ====================
         function exportJSON() {
@@ -1725,12 +1722,10 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             var tournaments = getTournaments();
             var tournamentsList = Object.keys(tournaments).map(function(k) { return tournaments[k]; });
 
-            // Filtrer par circuit sélectionné
-            if (currentFilter !== 'all') {
-                tournamentsList = tournamentsList.filter(function(t) {
-                    return t.circuit === currentFilter;
-                });
-            }
+            // Filtrer par circuits sélectionnés (multi-select)
+            tournamentsList = tournamentsList.filter(function(t) {
+                return selectedCircuits.indexOf(t.circuit) !== -1;
+            });
 
             // Trier par date décroissante
             tournamentsList.sort(function(a, b) {
