@@ -1,10 +1,12 @@
-const CACHE_NAME = 'tennis-lab-v56';
+const CACHE_NAME = 'tennis-lab-v57';
 const ASSETS_TO_CACHE = [
   './',
   './tennis_betting_lab_v15_ytd_monitor.html',
   './tennis_tracker.html',
   './manifest.json',
-  './manifest_tracker.json'
+  './manifest_tracker.json',
+  './icon-tracker-192.png',
+  './icon-tracker-512.png'
 ];
 
 // Installation - cache les fichiers de base
