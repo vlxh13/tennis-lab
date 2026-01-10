@@ -612,6 +612,22 @@
             </div>
 
             <div class="config-section">
+                <div class="card-title">Sauvegardes automatiques</div>
+                <div style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">
+                    Backup auto quotidien (7 derniers jours conservés)
+                </div>
+                <div id="backupList" style="margin-bottom:.75rem">
+                    <div class="no-data" style="font-size:.75rem">Chargement...</div>
+                </div>
+                <div style="display:flex;gap:.5rem">
+                    <button class="btn btn-sm btn-secondary" onclick="manualBackup()">Backup maintenant</button>
+                    <button class="btn btn-sm" style="background:var(--blue);color:#fff" onclick="exportFullBackup()">Export JSON</button>
+                    <button class="btn btn-sm" style="background:var(--purple);color:#fff" onclick="document.getElementById('jsonImport').click()">Import JSON</button>
+                    <input type="file" id="jsonImport" accept=".json" style="display:none" onchange="importFullBackup(event)">
+                </div>
+            </div>
+
+            <div class="config-section">
                 <button class="btn btn-sm btn-secondary" onclick="resetAll()" style="background:var(--red)">Reset tout</button>
             </div>
         </div>
@@ -1842,9 +1858,217 @@
             }
         }
 
+        // ==================== BACKUP SYSTEM ====================
+        const BACKUP_PREFIX = 'tennisTracker_backup_';
+        const MAX_BACKUPS = 7;
+
+        function getBackupKey(date) {
+            return BACKUP_PREFIX + date;
+        }
+
+        function getTodayDate() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function listBackups() {
+            const backups = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(BACKUP_PREFIX)) {
+                    const date = key.replace(BACKUP_PREFIX, '');
+                    const data = localStorage.getItem(key);
+                    if (data) {
+                        try {
+                            const parsed = JSON.parse(data);
+                            backups.push({
+                                date: date,
+                                key: key,
+                                historyCount: parsed.history ? parsed.history.length : 0,
+                                pendingCount: parsed.pending ? parsed.pending.length : 0,
+                                size: Math.round(data.length / 1024) // KB
+                            });
+                        } catch (e) {
+                            // Invalid backup, ignore
+                        }
+                    }
+                }
+            }
+            // Sort by date desc
+            return backups.sort((a, b) => b.date.localeCompare(a.date));
+        }
+
+        function autoBackup() {
+            const today = getTodayDate();
+            const backupKey = getBackupKey(today);
+
+            // Check if backup already exists for today
+            if (localStorage.getItem(backupKey)) {
+                console.log('[Backup] Backup already exists for today');
+                renderBackupList();
+                return;
+            }
+
+            // Check if there's data to backup
+            const currentData = localStorage.getItem('tennisTracker');
+            if (!currentData) {
+                console.log('[Backup] No data to backup');
+                renderBackupList();
+                return;
+            }
+
+            // Create backup
+            localStorage.setItem(backupKey, currentData);
+            console.log('[Backup] Created backup for', today);
+
+            // Cleanup old backups (keep only MAX_BACKUPS)
+            cleanupOldBackups();
+            renderBackupList();
+        }
+
+        function manualBackup() {
+            const today = getTodayDate();
+            const timestamp = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
+            const backupKey = getBackupKey(today + '_' + timestamp);
+
+            const currentData = localStorage.getItem('tennisTracker');
+            if (!currentData) {
+                alert('Aucune donnée à sauvegarder');
+                return;
+            }
+
+            localStorage.setItem(backupKey, currentData);
+            showToast('Backup créé !');
+            cleanupOldBackups();
+            renderBackupList();
+        }
+
+        function cleanupOldBackups() {
+            const backups = listBackups();
+            if (backups.length > MAX_BACKUPS) {
+                // Remove oldest backups
+                const toRemove = backups.slice(MAX_BACKUPS);
+                toRemove.forEach(b => {
+                    localStorage.removeItem(b.key);
+                    console.log('[Backup] Removed old backup:', b.date);
+                });
+            }
+        }
+
+        function restoreBackup(key) {
+            const data = localStorage.getItem(key);
+            if (!data) {
+                alert('Backup introuvable');
+                return;
+            }
+
+            if (!confirm('Restaurer ce backup ? Les données actuelles seront écrasées.')) {
+                return;
+            }
+
+            try {
+                // Verify data is valid
+                JSON.parse(data);
+                localStorage.setItem('tennisTracker', data);
+                showToast('Backup restauré ! Rechargement...');
+                setTimeout(() => location.reload(), 1000);
+            } catch (e) {
+                alert('Backup corrompu');
+            }
+        }
+
+        function deleteBackup(key) {
+            if (confirm('Supprimer ce backup ?')) {
+                localStorage.removeItem(key);
+                renderBackupList();
+            }
+        }
+
+        function renderBackupList() {
+            const container = document.getElementById('backupList');
+            const backups = listBackups();
+
+            if (backups.length === 0) {
+                container.innerHTML = '<div class="no-data" style="font-size:.75rem">Aucun backup</div>';
+                return;
+            }
+
+            const formatDate = (dateStr) => {
+                // Handle timestamps like 2026-01-10_14-30-00
+                const cleanDate = dateStr.split('_')[0];
+                const d = new Date(cleanDate);
+                const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+                const hasTime = dateStr.includes('_');
+                const timeStr = hasTime ? ' ' + dateStr.split('_')[1].replace(/-/g, ':') : '';
+                return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1) + timeStr;
+            };
+
+            container.innerHTML = backups.map(b => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem .5rem;background:var(--bg);border-radius:6px;margin-bottom:.3rem;font-size:.75rem">
+                    <div>
+                        <span style="color:var(--text)">${formatDate(b.date)}</span>
+                        <span style="color:var(--muted);margin-left:.5rem">${b.historyCount} paris • ${b.size}KB</span>
+                    </div>
+                    <div style="display:flex;gap:.25rem">
+                        <button class="btn" style="padding:3px 8px;font-size:.65rem;background:var(--green);color:#000" onclick="restoreBackup('${b.key}')">Restaurer</button>
+                        <button class="btn" style="padding:3px 6px;font-size:.65rem;background:transparent;color:var(--muted)" onclick="deleteBackup('${b.key}')">✕</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function exportFullBackup() {
+            const data = localStorage.getItem('tennisTracker');
+            if (!data) {
+                alert('Aucune donnée à exporter');
+                return;
+            }
+
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tennisTracker_backup_' + getTodayDate() + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Export JSON téléchargé');
+        }
+
+        function importFullBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // Validate structure
+                    if (!data.history || !Array.isArray(data.history)) {
+                        throw new Error('Structure invalide');
+                    }
+
+                    if (!confirm(`Importer ${data.history.length} paris ? Les données actuelles seront écrasées.`)) {
+                        return;
+                    }
+
+                    localStorage.setItem('tennisTracker', JSON.stringify(data));
+                    showToast('Import réussi ! Rechargement...');
+                    setTimeout(() => location.reload(), 1000);
+                } catch (err) {
+                    alert('Fichier JSON invalide : ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
         // ==================== INIT ====================
         loadState();
         updateConfigPreview();
+
+        // Auto backup on load
+        autoBackup();
 
         // ==================== AUTO-IMPORT TELEGRAM ====================
         // Debounce: attend 300ms apres le dernier input avant de parser
@@ -1875,7 +2099,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v55 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v56 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {
