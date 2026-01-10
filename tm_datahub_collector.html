@@ -1538,11 +1538,22 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 var minMatchesForComplete = Math.floor(expectedSize.matches * 0.8); // Au moins 80% des matchs
 
                 // Un tournoi est "complet" si:
-                // 1. Il y a un joueur avec 0 défaites et au moins 4-7 victoires (selon la catégorie)
+                // 1. Il y a un joueur avec 0 défaites et EXACTEMENT le bon nombre de victoires
                 // 2. Le nombre de matchs est proche de l'attendu
+                // 3. Le dernier match date d'au moins 2 jours (évite faux positifs en cours de tournoi)
                 var winsForChampion = expectedSize.rounds.length; // F=1, SF=2, etc.
-                t.isComplete = potentialWinner && maxWins >= Math.min(winsForChampion, 5) && t.matchCount >= Math.min(minMatchesForComplete, 20);
-                t.status = t.isComplete ? 'complet' : 'en cours';
+
+                // Vérification temporelle : pas "complet" si tournoi trop récent
+                var today = new Date().toISOString().split('T')[0];
+                var daysSinceLastMatch = Math.floor((new Date(today) - new Date(t.dateEnd)) / (1000 * 60 * 60 * 24));
+                var isOldEnough = daysSinceLastMatch >= 2;
+
+                // Champion doit avoir EXACTEMENT le bon nombre de victoires (pas >=)
+                var hasChampion = potentialWinner && maxWins === winsForChampion;
+                var hasEnoughMatches = t.matchCount >= Math.min(minMatchesForComplete, 20);
+
+                t.isComplete = hasChampion && hasEnoughMatches && isOldEnough;
+                t.status = t.isComplete ? 'complet' : (hasChampion && hasEnoughMatches ? 'récent' : 'en cours');
                 t.expectedMatches = expectedSize.matches;
                 t.roundsTemplate = expectedSize.rounds;
             });
@@ -1734,15 +1745,28 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
             tbody.innerHTML = tournamentsList.map(function(t) {
                 var circuitClass = 'badge-' + (t.circuit || 'atp').toLowerCase();
-                var statusClass = t.isComplete ? 'color:var(--green)' : 'color:var(--yellow)';
-                var statusIcon = t.isComplete ? '✅' : '⏳';
+
+                // 3 statuts possibles : complet (vert), récent (orange), en cours (jaune)
+                var statusClass, statusIcon;
+                if (t.status === 'complet') {
+                    statusClass = 'color:var(--green)';
+                    statusIcon = '✅';
+                } else if (t.status === 'récent') {
+                    statusClass = 'color:#f97316'; // orange
+                    statusIcon = '⏰';
+                } else {
+                    statusClass = 'color:var(--yellow)';
+                    statusIcon = '⏳';
+                }
 
                 // Compter les matchs avec rounds
                 var withRounds = t.matches.filter(function(m) { return m.round; }).length;
                 var roundsInfo = withRounds > 0 ? ' (' + withRounds + ' rounds)' : '';
 
-                var actionBtn = t.isComplete ?
-                    '<button class="btn btn-secondary" style="padding:0.3rem 0.5rem;font-size:0.7rem" onclick="calculateRoundsForOne(\'' + t.name + '_' + t.year + '\')">🔄 Calc</button>' :
+                // Bouton actif si complet OU récent (tournoi terminé mais < 2 jours)
+                var canCalculate = t.isComplete || t.status === 'récent';
+                var actionBtn = canCalculate ?
+                    '<button class="btn btn-secondary" style="padding:0.3rem 0.5rem;font-size:0.7rem" onclick="calculateRoundsForOne('" + t.name + '_' + t.year + "')">🔄 Calc</button>' :
                     '<span style="color:var(--muted);font-size:0.7rem">En attente</span>';
 
                 return '<tr>' +
