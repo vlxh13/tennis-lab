@@ -406,6 +406,7 @@
     <div class="tabs">
         <button class="tab active" onclick="setTab('import')">📥 Import</button>
         <button class="tab" onclick="setTab('data')">📊 Données</button>
+        <button class="tab" onclick="setTab('tournaments')">🏆 Tournois</button>
         <button class="tab" onclick="setTab('missing')">⚠️ Manquants</button>
         <button class="tab" onclick="setTab('export')">💾 Export</button>
     </div>
@@ -452,6 +453,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                         <th>Date</th>
                         <th>Circuit</th>
                         <th>Tournoi</th>
+                        <th>Round</th>
                         <th>Surface</th>
                         <th>Match</th>
                         <th>Score</th>
@@ -459,6 +461,38 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                     </tr>
                 </thead>
                 <tbody id="dataTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tab: Tournaments -->
+    <div id="tabTournaments" class="card" style="display:none">
+        <div class="card-title">🏆 Analyse des tournois</div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem">
+            Une fois un tournoi terminé (finale jouée), les rounds sont calculés automatiquement en analysant le bracket.
+        </p>
+
+        <div class="btn-row" style="margin-bottom:1rem">
+            <button class="btn btn-primary" onclick="calculateAllRounds()">🔄 Recalculer tous les rounds</button>
+            <button class="btn btn-secondary" onclick="clearAllRounds()">🗑️ Effacer les rounds</button>
+        </div>
+
+        <div id="roundsResult" style="display:none;margin-bottom:1rem"></div>
+
+        <div class="card-title" style="margin-top:1rem">📋 Tournois détectés</div>
+        <div class="table-wrap" style="max-height:500px">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tournoi</th>
+                        <th>Circuit</th>
+                        <th>Dates</th>
+                        <th>Matchs</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tournamentsTable"></tbody>
             </table>
         </div>
     </div>
@@ -494,7 +528,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
     <!-- Version -->
     <div class="version">
-        v1 <button onclick="forceUpdate()">MAJ</button>
+        v2 <button onclick="forceUpdate()">MAJ</button>
     </div>
 
     <script>
@@ -721,6 +755,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             updateAlert();
             updateDataTable();
             updateMissingDays();
+            updateTournamentsTable();
         }
 
         function updateStats() {
@@ -834,10 +869,22 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 var p1Class = m.winner === m.player1 ? 'winner' : '';
                 var p2Class = m.winner === m.player2 ? 'winner' : '';
 
+                // Round badge
+                var roundBadge = '-';
+                if (m.round) {
+                    var roundColors = {
+                        'F': 'var(--green)', 'SF': 'var(--blue)', 'QF': 'var(--orange)',
+                        'R16': 'var(--yellow)', 'R32': 'var(--muted)', 'R64': 'var(--muted)', 'R128': 'var(--muted)'
+                    };
+                    var rColor = roundColors[m.round] || 'var(--muted)';
+                    roundBadge = '<span style="color:' + rColor + ';font-weight:600">' + m.round + '</span>';
+                }
+
                 return '<tr>' +
                     '<td class="mono">' + m.date.slice(5) + '</td>' +
                     '<td><span class="badge ' + circuitClass + '">' + m.circuit + '</span></td>' +
                     '<td>' + m.tournament_clean + '</td>' +
+                    '<td>' + roundBadge + '</td>' +
                     '<td class="' + surfaceClass + '">' + m.surface + '</td>' +
                     '<td><span class="' + p1Class + '">' + m.player1 + '</span> vs <span class="' + p2Class + '">' + m.player2 + '</span></td>' +
                     '<td class="mono">' + m.score + '</td>' +
@@ -938,13 +985,14 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 showToast('Base vide', 'error');
                 return;
             }
-            var headers = ['date', 'time', 'year', 'circuit', 'category', 'tournament', 'surface', 'player1', 'player2', 'score', 'winner', 'odds1', 'odds2', 'winner_odds'];
+            var headers = ['date', 'time', 'year', 'circuit', 'category', 'tournament', 'surface', 'round', 'player1', 'player2', 'score', 'winner', 'odds1', 'odds2', 'winner_odds'];
             var csv = headers.join(',') + '\n';
             database.forEach(function(m) {
                 csv += [
                     m.date, m.time, m.year, m.circuit, m.category,
                     '"' + m.tournament.replace(/"/g, '""') + '"',
                     m.surface,
+                    m.round || '',
                     '"' + m.player1 + '"', '"' + m.player2 + '"',
                     m.score, '"' + m.winner + '"',
                     m.odds1 || '', m.odds2 || '', m.winner_odds || ''
@@ -1011,6 +1059,229 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             saveDatabase();
             updateUI();
             showToast('Base vidée', 'success');
+        }
+
+        // ==================== TOURNAMENTS & ROUNDS ====================
+
+        // Nombre de matchs attendus par catégorie de tournoi
+        var TOURNAMENT_SIZES = {
+            'Grand Slam': { draw: 128, matches: 127, rounds: ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'] },
+            '1000': { draw: 56, matches: 55, rounds: ['R64', 'R32', 'R16', 'QF', 'SF', 'F'] },
+            '500': { draw: 32, matches: 31, rounds: ['R32', 'R16', 'QF', 'SF', 'F'] },
+            '250': { draw: 32, matches: 31, rounds: ['R32', 'R16', 'QF', 'SF', 'F'] },
+            'Challenger': { draw: 32, matches: 31, rounds: ['R32', 'R16', 'QF', 'SF', 'F'] },
+            'United Cup': { draw: 16, matches: 15, rounds: ['R16', 'QF', 'SF', 'F'] }
+        };
+
+        function getTournaments() {
+            var tournaments = {};
+            database.forEach(function(m) {
+                var key = m.tournament_clean + '_' + m.year;
+                if (!tournaments[key]) {
+                    tournaments[key] = {
+                        name: m.tournament_clean,
+                        tournament_full: m.tournament,
+                        year: m.year,
+                        circuit: m.circuit,
+                        category: m.category,
+                        surface: m.surface,
+                        matches: [],
+                        dates: [],
+                        players: {}
+                    };
+                }
+                tournaments[key].matches.push(m);
+                if (!tournaments[key].dates.includes(m.date)) {
+                    tournaments[key].dates.push(m.date);
+                }
+                // Tracker les victoires/défaites de chaque joueur
+                if (!tournaments[key].players[m.player1]) tournaments[key].players[m.player1] = { wins: 0, losses: 0 };
+                if (!tournaments[key].players[m.player2]) tournaments[key].players[m.player2] = { wins: 0, losses: 0 };
+                if (m.winner === m.player1) {
+                    tournaments[key].players[m.player1].wins++;
+                    tournaments[key].players[m.player2].losses++;
+                } else {
+                    tournaments[key].players[m.player2].wins++;
+                    tournaments[key].players[m.player1].losses++;
+                }
+            });
+
+            // Analyser chaque tournoi
+            Object.keys(tournaments).forEach(function(key) {
+                var t = tournaments[key];
+                t.dates.sort();
+                t.dateStart = t.dates[0];
+                t.dateEnd = t.dates[t.dates.length - 1];
+                t.matchCount = t.matches.length;
+
+                // Trouver le vainqueur potentiel (joueur avec le plus de victoires et 0 défaites à la fin)
+                var potentialWinner = null;
+                var maxWins = 0;
+                Object.keys(t.players).forEach(function(player) {
+                    var p = t.players[player];
+                    if (p.losses === 0 && p.wins > maxWins) {
+                        maxWins = p.wins;
+                        potentialWinner = player;
+                    }
+                });
+                t.potentialWinner = potentialWinner;
+                t.maxWins = maxWins;
+
+                // Déterminer si le tournoi semble complet
+                var expectedSize = TOURNAMENT_SIZES[t.category] || TOURNAMENT_SIZES['250'];
+                var minMatchesForComplete = Math.floor(expectedSize.matches * 0.8); // Au moins 80% des matchs
+
+                // Un tournoi est "complet" si:
+                // 1. Il y a un joueur avec 0 défaites et au moins 4-7 victoires (selon la catégorie)
+                // 2. Le nombre de matchs est proche de l'attendu
+                var winsForChampion = expectedSize.rounds.length; // F=1, SF=2, etc.
+                t.isComplete = potentialWinner && maxWins >= Math.min(winsForChampion, 5) && t.matchCount >= Math.min(minMatchesForComplete, 20);
+                t.status = t.isComplete ? 'complet' : 'en cours';
+                t.expectedMatches = expectedSize.matches;
+                t.roundsTemplate = expectedSize.rounds;
+            });
+
+            return tournaments;
+        }
+
+        function calculateRoundsForTournament(tournament) {
+            if (!tournament.isComplete) return 0;
+
+            var matches = tournament.matches;
+            var roundsTemplate = tournament.roundsTemplate;
+
+            // Trier les matchs par date
+            matches.sort(function(a, b) {
+                return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time);
+            });
+
+            // Construire le bracket en partant de la finale
+            // Le vainqueur du tournoi a joué la finale en dernier
+            var winner = tournament.potentialWinner;
+            var winnerMatches = matches.filter(function(m) { return m.winner === winner; });
+
+            // Assigner les rounds du vainqueur (de la finale vers le début)
+            var roundIdx = roundsTemplate.length - 1; // Commence par F
+            for (var i = winnerMatches.length - 1; i >= 0 && roundIdx >= 0; i--) {
+                winnerMatches[i].round = roundsTemplate[roundIdx];
+                roundIdx--;
+            }
+
+            // Pour les autres joueurs, déduire le round de leur défaite
+            // Un joueur qui perd contre le futur champion au round X a joué ce round
+            matches.forEach(function(m) {
+                if (m.round) return; // Déjà assigné
+
+                // Trouver à quel round le perdant a été éliminé
+                var loser = m.winner === m.player1 ? m.player2 : m.player1;
+                var loserData = tournament.players[loser];
+
+                // Le round dépend du nombre de victoires avant la défaite
+                // 0 victoires = premier tour (R32 ou R64 ou R128)
+                // 1 victoire = deuxième tour
+                // etc.
+                var winsBeforeLoss = loserData.wins;
+                var roundForLoser = roundsTemplate[Math.min(winsBeforeLoss, roundsTemplate.length - 1)];
+                m.round = roundForLoser;
+            });
+
+            // Compter les matchs avec round assigné
+            var assigned = matches.filter(function(m) { return m.round; }).length;
+            return assigned;
+        }
+
+        function calculateAllRounds() {
+            var tournaments = getTournaments();
+            var totalAssigned = 0;
+            var tournamentsProcessed = 0;
+
+            Object.keys(tournaments).forEach(function(key) {
+                var t = tournaments[key];
+                if (t.isComplete) {
+                    var assigned = calculateRoundsForTournament(t);
+                    totalAssigned += assigned;
+                    tournamentsProcessed++;
+                }
+            });
+
+            saveDatabase();
+            updateUI();
+
+            var resultDiv = document.getElementById('roundsResult');
+            resultDiv.style.display = 'block';
+            if (tournamentsProcessed > 0) {
+                resultDiv.className = 'alert success';
+                resultDiv.innerHTML = '<div class="alert-title">✅ Rounds calculés</div>' +
+                    '<div>' + totalAssigned + ' matchs mis à jour sur ' + tournamentsProcessed + ' tournoi(s) complet(s)</div>';
+                showToast(totalAssigned + ' rounds assignés', 'success');
+            } else {
+                resultDiv.className = 'alert warning';
+                resultDiv.innerHTML = '<div class="alert-title">⚠️ Aucun tournoi complet</div>' +
+                    '<div>Importe plus de données pour avoir des tournois complets.</div>';
+                showToast('Aucun tournoi complet trouvé', 'error');
+            }
+        }
+
+        function calculateRoundsForOne(tournamentKey) {
+            var tournaments = getTournaments();
+            var t = tournaments[tournamentKey];
+            if (!t) {
+                showToast('Tournoi non trouvé', 'error');
+                return;
+            }
+
+            var assigned = calculateRoundsForTournament(t);
+            saveDatabase();
+            updateUI();
+            showToast(assigned + ' rounds assignés pour ' + t.name, 'success');
+        }
+
+        function clearAllRounds() {
+            if (!confirm('Effacer tous les rounds ? Tu pourras les recalculer ensuite.')) return;
+
+            database.forEach(function(m) {
+                delete m.round;
+            });
+
+            saveDatabase();
+            updateUI();
+            showToast('Rounds effacés', 'success');
+        }
+
+        function updateTournamentsTable() {
+            var tbody = document.getElementById('tournamentsTable');
+            if (!tbody) return;
+
+            var tournaments = getTournaments();
+            var tournamentsList = Object.keys(tournaments).map(function(k) { return tournaments[k]; });
+
+            // Trier par date décroissante
+            tournamentsList.sort(function(a, b) {
+                return b.dateEnd.localeCompare(a.dateEnd);
+            });
+
+            tbody.innerHTML = tournamentsList.map(function(t) {
+                var circuitClass = 'badge-' + (t.circuit || 'atp').toLowerCase();
+                var statusClass = t.isComplete ? 'color:var(--green)' : 'color:var(--yellow)';
+                var statusIcon = t.isComplete ? '✅' : '⏳';
+
+                // Compter les matchs avec rounds
+                var withRounds = t.matches.filter(function(m) { return m.round; }).length;
+                var roundsInfo = withRounds > 0 ? ' (' + withRounds + ' rounds)' : '';
+
+                var actionBtn = t.isComplete ?
+                    '<button class="btn btn-secondary" style="padding:0.3rem 0.5rem;font-size:0.7rem" onclick="calculateRoundsForOne(\'' + t.name + '_' + t.year + '\')">🔄 Calc</button>' :
+                    '<span style="color:var(--muted);font-size:0.7rem">En attente</span>';
+
+                return '<tr>' +
+                    '<td>' + t.name + (t.potentialWinner ? '<br><span style="font-size:0.65rem;color:var(--green)">🏆 ' + t.potentialWinner + '</span>' : '') + '</td>' +
+                    '<td><span class="badge ' + circuitClass + '">' + t.circuit + '</span></td>' +
+                    '<td class="mono" style="font-size:0.7rem">' + t.dateStart.slice(5) + ' → ' + t.dateEnd.slice(5) + '</td>' +
+                    '<td class="mono">' + t.matchCount + '/' + t.expectedMatches + roundsInfo + '</td>' +
+                    '<td style="' + statusClass + '">' + statusIcon + ' ' + t.status + '</td>' +
+                    '<td>' + actionBtn + '</td>' +
+                '</tr>';
+            }).join('');
         }
 
         // ==================== TOAST ====================
