@@ -554,6 +554,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         <div class="btn-row" style="margin-bottom:1rem">
             <button class="btn btn-primary" onclick="calculateAllRounds()">🔄 Recalculer tous les rounds</button>
             <button class="btn btn-secondary" onclick="clearAllRounds()">🗑️ Effacer les rounds</button>
+            <button class="btn btn-blue" onclick="recalculateSurfaces()">🎾 Recalculer les surfaces</button>
         </div>
 
         <div id="roundsResult" style="display:none;margin-bottom:1rem"></div>
@@ -1440,6 +1441,28 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             saveDatabase();
             updateUI();
             showToast('Rounds effacés', 'success');
+        }
+
+        function recalculateSurfaces() {
+            var updated = 0;
+            var unmapped = 0;
+
+            database.forEach(function(m) {
+                var surfaceInfo = detectSurface(m.tournament);
+                var oldSurface = m.surface;
+                m.surface = surfaceInfo.surface;
+                m.surface_mapped = surfaceInfo.mapped;
+
+                if (oldSurface !== m.surface) updated++;
+                if (!surfaceInfo.mapped) unmapped++;
+            });
+
+            saveDatabase();
+            updateUI();
+
+            var msg = updated + ' surfaces mises à jour';
+            if (unmapped > 0) msg += ' (' + unmapped + ' non mappées)';
+            showToast(msg, updated > 0 ? 'success' : 'warning');
         }
 
         function updateTournamentsTable() {
