@@ -16570,5 +16570,28 @@
         // Mettre à jour l'affichage du simulateur après le chargement complet
         setTimeout(function() { updateSimDisplay(); }, 100);
     </script>
+
+    <!-- Version + Force Update -->
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#888;background:rgba(0,0,0,0.6);padding:4px 10px;border-radius:4px;z-index:9999">
+        v57 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 8px;margin-left:6px;cursor:pointer;background:#4d9fff;color:#000;border:none;border-radius:3px;font-weight:600">MAJ</button>
+    </div>
+    <script>
+    function forceUpdate() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+            }).then(function() {
+                return caches.keys();
+            }).then(function(keys) {
+                keys.forEach(function(k) { caches.delete(k); });
+            }).then(function() {
+                alert('Cache vide. Rechargement...');
+                location.reload(true);
+            });
+        } else {
+            location.reload(true);
+        }
+    }
+    </script>
 </body>
 </html>
