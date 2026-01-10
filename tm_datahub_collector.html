@@ -548,13 +548,15 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
     <div id="tabTournaments" class="card" style="display:none">
         <div class="card-title">🏆 Analyse des tournois</div>
         <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem">
-            Une fois un tournoi terminé (finale jouée), les rounds sont calculés automatiquement en analysant le bracket.
+            <strong>~</strong> = round estimé (densité de matchs) • <strong>✓</strong> = round confirmé (bracket analysé)<br>
+            <span style="color:#6b7280">Qualifs détectées auto</span> si > 1.4× matchs attendus → Q1, Q2, Q3
         </p>
 
-        <div class="btn-row" style="margin-bottom:1rem">
-            <button class="btn btn-primary" onclick="calculateAllRounds()">🔄 Recalculer tous les rounds</button>
-            <button class="btn btn-secondary" onclick="clearAllRounds()">🗑️ Effacer les rounds</button>
-            <button class="btn btn-blue" onclick="recalculateSurfaces()">🔧 Recalculer tournois + surfaces</button>
+        <div class="btn-row" style="margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
+            <button class="btn btn-primary" onclick="estimateAllRounds()">⚡ Estimer rounds</button>
+            <button class="btn btn-primary" onclick="calculateAllRounds()">✓ Confirmer rounds (complets)</button>
+            <button class="btn btn-secondary" onclick="clearAllRounds()">🗑️ Effacer</button>
+            <button class="btn btn-blue" onclick="recalculateSurfaces()">🔧 Recalc tournois + surfaces</button>
         </div>
 
         <div id="roundsResult" style="display:none;margin-bottom:1rem"></div>
@@ -825,6 +827,190 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             return matches;
         }
 
+        // ==================== ROUND ESTIMATION ====================
+        function estimateRoundsForNewMatches() {
+            // Pour chaque tournoi, estimer les rounds basé sur:
+            // 1. Densité de matchs par jour
+            // 2. Nombre de victoires du joueur dans le tournoi
+
+            var tournaments = {};
+
+            // Grouper par tournoi
+            database.forEach(function(m) {
+                var key = m.tournament_clean + '_' + m.year;
+                if (!tournaments[key]) {
+                    tournaments[key] = {
+                        matches: [],
+                        category: m.category,
+                        circuit: m.circuit
+                    };
+                }
+                tournaments[key].matches.push(m);
+            });
+
+            // Pour chaque tournoi
+            Object.keys(tournaments).forEach(function(tKey) {
+                var t = tournaments[tKey];
+                var matches = t.matches;
+
+                // Skip si tous les matchs ont déjà un round confirmé
+                var needsEstimation = matches.some(function(m) {
+                    return !m.round || !m.round_confirmed;
+                });
+                if (!needsEstimation) return;
+
+                // Grouper par date
+                var byDate = {};
+                matches.forEach(function(m) {
+                    if (!byDate[m.date]) byDate[m.date] = [];
+                    byDate[m.date].push(m);
+                });
+
+                var dates = Object.keys(byDate).sort();
+                var totalDays = dates.length;
+
+                // Tracker les victoires par joueur
+                var playerWins = {};
+                matches.forEach(function(m) {
+                    if (!playerWins[m.player1]) playerWins[m.player1] = 0;
+                    if (!playerWins[m.player2]) playerWins[m.player2] = 0;
+                });
+
+                // Trier les matchs par date pour tracker les victoires
+                var sortedMatches = matches.slice().sort(function(a, b) {
+                    return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time);
+                });
+
+                sortedMatches.forEach(function(m) {
+                    playerWins[m.winner] = (playerWins[m.winner] || 0) + 1;
+                });
+
+                // Templates de rounds (main draw)
+                var mainTemplates = {
+                    'Grand Slam': ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+                    '1000': ['R64', 'R32', 'R16', 'QF', 'SF', 'F'],
+                    '500': ['R32', 'R16', 'QF', 'SF', 'F'],
+                    '250': ['R32', 'R16', 'QF', 'SF', 'F'],
+                    'Challenger': ['R32', 'R16', 'QF', 'SF', 'F']
+                };
+
+                // Nombre de matchs attendus pour le main draw
+                var expectedMainMatches = {
+                    'Grand Slam': 127,
+                    '1000': 55,
+                    '500': 31,
+                    '250': 31,
+                    'Challenger': 31
+                };
+
+                var mainTemplate = mainTemplates[t.category] || mainTemplates['250'];
+                var expectedMain = expectedMainMatches[t.category] || 31;
+
+                // Détecter si y'a des qualifs (> 1.4× matchs attendus)
+                var hasQualifs = matches.length > expectedMain * 1.4;
+
+                // Calculer le "pivot day" - jour où le main draw commence
+                // En général, après les jours avec beaucoup de matchs (qualifs)
+                var pivotDayIdx = 0;
+                if (hasQualifs && dates.length > 2) {
+                    // Chercher le jour où la densité chute (fin des qualifs)
+                    var maxDensity = 0;
+                    for (var d = 0; d < dates.length - 2; d++) {
+                        var density = byDate[dates[d]].length;
+                        if (density > maxDensity) maxDensity = density;
+                    }
+                    // Le pivot est le premier jour avec moins de la moitié de la densité max
+                    // et qui n'est pas dans les 2 premiers jours
+                    for (var d = 2; d < dates.length; d++) {
+                        var density = byDate[dates[d]].length;
+                        var prevDensity = byDate[dates[d-1]].length;
+                        // Si la densité chute significativement, c'est le début du main draw
+                        if (density < maxDensity * 0.6 && prevDensity >= maxDensity * 0.6) {
+                            pivotDayIdx = d;
+                            break;
+                        }
+                    }
+                    // Fallback: si pas de chute claire, prendre jour 2-3
+                    if (pivotDayIdx === 0) pivotDayIdx = Math.min(2, dates.length - 3);
+                }
+
+                // Estimer le round pour chaque match
+                matches.forEach(function(m) {
+                    // Skip si déjà confirmé
+                    if (m.round_confirmed) return;
+
+                    var dateIdx = dates.indexOf(m.date);
+                    var matchesThisDay = byDate[m.date].length;
+                    var estimatedRound;
+
+                    // Est-ce un match de qualifs ?
+                    var isQualif = hasQualifs && dateIdx < pivotDayIdx;
+
+                    if (isQualif) {
+                        // Qualifs: Q1, Q2, Q3 basé sur la position dans la période qualif
+                        var qualifProgress = pivotDayIdx > 0 ? dateIdx / pivotDayIdx : 0;
+                        if (qualifProgress < 0.4) {
+                            estimatedRound = 'Q1';
+                        } else if (qualifProgress < 0.7) {
+                            estimatedRound = 'Q2';
+                        } else {
+                            estimatedRound = 'Q3';
+                        }
+                    } else {
+                        // Main draw: estimer par densité
+                        if (matchesThisDay >= 12) {
+                            estimatedRound = mainTemplate[0]; // Premier tour (R32/R64/R128)
+                        } else if (matchesThisDay >= 6) {
+                            estimatedRound = mainTemplate[Math.min(1, mainTemplate.length - 1)];
+                        } else if (matchesThisDay >= 3) {
+                            estimatedRound = mainTemplate[Math.min(2, mainTemplate.length - 1)];
+                        } else if (matchesThisDay === 2) {
+                            estimatedRound = 'SF';
+                        } else if (matchesThisDay === 1) {
+                            estimatedRound = 'F';
+                        } else {
+                            // Fallback: position dans le main draw
+                            var mainDayIdx = dateIdx - pivotDayIdx;
+                            var mainDays = dates.length - pivotDayIdx;
+                            var progress = mainDays > 1 ? mainDayIdx / (mainDays - 1) : 0;
+                            var roundIdx = Math.floor(progress * (mainTemplate.length - 1));
+                            estimatedRound = mainTemplate[Math.min(roundIdx, mainTemplate.length - 1)];
+                        }
+                    }
+
+                    m.round = estimatedRound;
+                    m.round_confirmed = false;
+                });
+            });
+        }
+
+        function checkAndConfirmCompleteTournaments() {
+            // Vérifie si des tournois sont devenus complets et recalcule leurs rounds
+            var tournaments = getTournaments();
+            var confirmed = 0;
+
+            Object.keys(tournaments).forEach(function(key) {
+                var t = tournaments[key];
+                if (t.isComplete) {
+                    // Vérifier si les rounds ne sont pas encore confirmés
+                    var hasUnconfirmed = t.matches.some(function(m) {
+                        return !m.round_confirmed;
+                    });
+
+                    if (hasUnconfirmed) {
+                        calculateRoundsForTournament(t);
+                        // Marquer comme confirmés
+                        t.matches.forEach(function(m) {
+                            m.round_confirmed = true;
+                        });
+                        confirmed++;
+                    }
+                }
+            });
+
+            return confirmed;
+        }
+
         // ==================== IMPORT ====================
         function importData() {
             var text = document.getElementById('inputData').value;
@@ -863,6 +1049,12 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time);
             });
 
+            // Estimer les rounds pour les nouveaux matchs
+            estimateRoundsForNewMatches();
+
+            // Vérifier si des tournois sont devenus complets → confirmer les rounds
+            var confirmed = checkAndConfirmCompleteTournaments();
+
             saveDatabase();
             updateUI();
 
@@ -870,8 +1062,9 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             var resultDiv = document.getElementById('importResult');
             resultDiv.style.display = 'block';
             resultDiv.className = 'alert success';
+            var confirmMsg = confirmed > 0 ? '<br><span style="color:var(--green)">🏆 ' + confirmed + ' tournoi(s) complété(s) - rounds confirmés</span>' : '';
             resultDiv.innerHTML = '<div class="alert-title">✅ Import réussi</div>' +
-                '<div>' + matches.length + ' matchs parsés, <strong>' + added + '</strong> nouveaux ajoutés</div>';
+                '<div>' + matches.length + ' matchs parsés, <strong>' + added + '</strong> nouveaux ajoutés' + confirmMsg + '</div>';
 
             showToast(added + ' matchs ajoutés', 'success');
             document.getElementById('inputData').value = '';
@@ -1022,9 +1215,12 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 if (m.round) {
                     var roundColors = {
                         'F': '#22c55e', 'SF': '#4d9fff', 'QF': '#f97316',
-                        'R16': '#eab308', 'R32': '#888', 'R64': '#888', 'R128': '#888'
+                        'R16': '#eab308', 'R32': '#888', 'R64': '#888', 'R128': '#888',
+                        'Q1': '#6b7280', 'Q2': '#6b7280', 'Q3': '#6b7280'
                     };
-                    roundBadge = '<span style="background:' + (roundColors[m.round] || '#888') + ';color:#000;padding:2px 6px;border-radius:4px;font-size:0.75rem;font-weight:600">' + m.round + '</span>';
+                    var statusIcon = m.round_confirmed ? '✓' : '~';
+                    var statusTitle = m.round_confirmed ? 'Round confirmé' : 'Round estimé';
+                    roundBadge = '<span style="background:' + (roundColors[m.round] || '#888') + ';color:#000;padding:2px 6px;border-radius:4px;font-size:0.75rem;font-weight:600" title="' + statusTitle + '">' + m.round + ' ' + statusIcon + '</span>';
                 }
 
                 var p1Display = m.winner === m.player1
@@ -1363,13 +1559,14 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             var roundIdx = roundsTemplate.length - 1; // Commence par F
             for (var i = winnerMatches.length - 1; i >= 0 && roundIdx >= 0; i--) {
                 winnerMatches[i].round = roundsTemplate[roundIdx];
+                winnerMatches[i].round_confirmed = true;
                 roundIdx--;
             }
 
             // Pour les autres joueurs, déduire le round de leur défaite
             // Un joueur qui perd contre le futur champion au round X a joué ce round
             matches.forEach(function(m) {
-                if (m.round) return; // Déjà assigné
+                if (m.round_confirmed) return; // Déjà confirmé
 
                 // Trouver à quel round le perdant a été éliminé
                 var loser = m.winner === m.player1 ? m.player2 : m.player1;
@@ -1382,6 +1579,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                 var winsBeforeLoss = loserData.wins;
                 var roundForLoser = roundsTemplate[Math.min(winsBeforeLoss, roundsTemplate.length - 1)];
                 m.round = roundForLoser;
+                m.round_confirmed = true;
             });
 
             // Compter les matchs avec round assigné
@@ -1435,11 +1633,36 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             showToast(assigned + ' rounds assignés pour ' + t.name, 'success');
         }
 
+        function estimateAllRounds() {
+            // Réinitialiser les rounds non confirmés et ré-estimer
+            database.forEach(function(m) {
+                if (!m.round_confirmed) {
+                    delete m.round;
+                }
+            });
+
+            estimateRoundsForNewMatches();
+            saveDatabase();
+            updateUI();
+
+            var estimated = database.filter(function(m) { return m.round && !m.round_confirmed; }).length;
+            var confirmed = database.filter(function(m) { return m.round_confirmed; }).length;
+
+            var resultDiv = document.getElementById('roundsResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'alert success';
+            resultDiv.innerHTML = '<div class="alert-title">⚡ Estimation terminée</div>' +
+                '<div>' + estimated + ' rounds estimés, ' + confirmed + ' déjà confirmés</div>';
+
+            showToast(estimated + ' rounds estimés', 'success');
+        }
+
         function clearAllRounds() {
             if (!confirm('Effacer tous les rounds ? Tu pourras les recalculer ensuite.')) return;
 
             database.forEach(function(m) {
                 delete m.round;
+                delete m.round_confirmed;
             });
 
             saveDatabase();
