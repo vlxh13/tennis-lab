@@ -1,0 +1,70 @@
+[
+  {
+    "date": "2026-01-10",
+    "time": "10h23",
+    "tournament": "WTA Auckland",
+    "player1": "Svitolina E.",
+    "player2": "Jovic I.",
+    "score": "7/6 6/2",
+    "sets": [
+      "7/6",
+      "6/2"
+    ],
+    "winner": "Svitolina E.",
+    "odds_player1": 1.382,
+    "odds_player2": 3.33,
+    "winner_odds": 1.382,
+    "loser_odds": 3.33
+  },
+  {
+    "date": "2026-01-10",
+    "time": "10h03",
+    "tournament": "ATP United Cup",
+    "player1": "Hurkacz H.",
+    "player2": "Fritz T.",
+    "score": "7/6 7/6",
+    "sets": [
+      "7/6",
+      "7/6"
+    ],
+    "winner": "Hurkacz H.",
+    "odds_player1": 2.04,
+    "odds_player2": 1.87,
+    "winner_odds": 2.04,
+    "loser_odds": 1.87
+  },
+  {
+    "date": "2026-01-10",
+    "time": "07h33",
+    "tournament": "Challenger Men - Singles Canberra",
+    "player1": "Blockx A.",
+    "player2": "Jodar R.",
+    "score": "6/4 6/4",
+    "sets": [
+      "6/4",
+      "6/4"
+    ],
+    "winner": "Blockx A.",
+    "odds_player1": 2.79,
+    "odds_player2": 1.49,
+    "winner_odds": 2.79,
+    "loser_odds": 1.49
+  },
+  {
+    "date": "2026-01-10",
+    "time": "06h23",
+    "tournament": "Challenger Men - Singles Nonthaburi",
+    "player1": "Noguchi R.",
+    "player2": "Gengel M.",
+    "score": "6/3 6/4",
+    "sets": [
+      "6/3",
+      "6/4"
+    ],
+    "winner": "Noguchi R.",
+    "odds_player1": 1.613,
+    "odds_player2": 2.45,
+    "winner_odds": 1.613,
+    "loser_odds": 2.45
+  }
+]
