@@ -115,6 +115,48 @@
             .sim-stats-grid{grid-template-columns:1fr!important;gap:.5rem!important}
         }
 
+        /* ========== EXTRA SMALL (iPhone 12 mini portrait 375px) ========== */
+        @media(max-width:400px){
+            body{font-size:13px}
+            .header{padding:.5rem}
+            .header h1{font-size:1rem}
+            .main-tabs{gap:.25rem}
+            .main-tab{padding:.35rem .5rem;font-size:.7rem;white-space:nowrap}
+            .header-bankroll .value{font-size:1rem}
+            .main-content{padding:.5rem}
+            .circuit-tabs{padding:.4rem;gap:.3rem}
+            .circuit-tab{padding:.4rem .6rem;font-size:.7rem;white-space:nowrap}
+            .card{padding:.5rem}
+            .card-title{font-size:.7rem;margin-bottom:.5rem}
+            .stats{grid-template-columns:repeat(2,1fr);gap:.4rem}
+            .stat{padding:.4rem}
+            .stat .val{font-size:.9rem}
+            .stat .lbl{font-size:.55rem}
+            .btn{padding:.5rem .75rem;font-size:.75rem}
+            .niches{max-height:150px}
+            .niche{padding:.4rem;font-size:.7rem}
+            .niche .roi{font-size:.7rem}
+            table{font-size:.65rem}
+            th,td{padding:.3rem}
+            th{font-size:.6rem}
+            .bet-card{padding:.5rem}
+            .bet-player{font-size:.8rem}
+            .bet-odds{font-size:.9rem}
+            .bet-details{font-size:.7rem}
+            .years{grid-template-columns:repeat(auto-fill,minmax(55px,1fr))}
+            .year{padding:.3rem;font-size:.65rem}
+            .tabs{gap:.25rem}
+            .tab{padding:.3rem .5rem;font-size:.65rem}
+            .chart-box{height:150px}
+            .week-alert{padding:.5rem .75rem;font-size:.8rem}
+            .week-alert-title{font-size:.85rem}
+            .table-wrap{max-height:250px}
+            textarea{font-size:.7rem!important;height:120px!important}
+            select,input[type="date"]{font-size:.75rem!important;padding:.4rem!important}
+            .form-group label{font-size:.7rem}
+            .form-group input,.form-group select{font-size:.8rem;padding:.5rem}
+        }
+
         .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem;overflow:hidden}
         .card-title{font-size:.9rem;font-weight:600;margin-bottom:.75rem;color:var(--muted);text-transform:uppercase}
         .card.atp-border{border-left:4px solid var(--atp)}
@@ -1098,13 +1140,19 @@
                     <button class="btn" onclick="clearDatahub()" style="background:var(--bg);border-color:var(--border)">🗑️ Vider la base</button>
                 </div>
 
+                <!-- Stats par circuit -->
+                <div style="margin-top:1rem;margin-bottom:1rem">
+                    <div style="font-weight:600;font-size:.85rem;margin-bottom:.5rem">📊 Répartition par circuit</div>
+                    <div id="dhCircuitStats" style="display:flex;gap:.5rem;flex-wrap:wrap"></div>
+                </div>
+
                 <!-- Derniers matchs importés -->
                 <div style="margin-top:1rem">
                     <div style="font-weight:600;font-size:.85rem;margin-bottom:.5rem">📋 Derniers matchs importés</div>
                     <div class="table-wrap" style="max-height:300px;overflow-y:auto">
                         <table>
                             <thead>
-                                <tr><th>Date</th><th>Tournoi</th><th>Match</th><th>Score</th><th>Cotes</th></tr>
+                                <tr><th>Date</th><th>Circuit</th><th>Tournoi</th><th>Surface</th><th>Match</th><th>Score</th><th>Cotes</th></tr>
                             </thead>
                             <tbody id="dhRecentMatches"></tbody>
                         </table>
@@ -16139,6 +16187,80 @@
         var DATAHUB_STORAGE_KEY = 'tennislab_datahub';
         var datahubData = [];
 
+        // Mapping surfaces par tournoi (basé sur les tournois courants)
+        var TOURNAMENT_SURFACES = {
+            // ATP 250
+            'brisbane': 'Hard', 'adelaide': 'Hard', 'auckland': 'Hard', 'hong kong': 'Hard',
+            'doha': 'Hard', 'montpellier': 'Indoor Hard', 'dallas': 'Indoor Hard',
+            'marseille': 'Indoor Hard', 'delray beach': 'Hard', 'los cabos': 'Hard',
+            'atlanta': 'Hard', 'newport': 'Grass', 'bastad': 'Clay', 'gstaad': 'Clay',
+            'kitzbuhel': 'Clay', 'umag': 'Clay', 'winston-salem': 'Hard',
+            'metz': 'Indoor Hard', 'sofia': 'Indoor Hard', 'astana': 'Indoor Hard',
+            'antwerp': 'Indoor Hard', 'stockholm': 'Indoor Hard', 'basel': 'Indoor Hard',
+            'vienna': 'Indoor Hard',
+            // ATP 500
+            'rotterdam': 'Indoor Hard', 'rio de janeiro': 'Clay', 'acapulco': 'Hard',
+            'dubai': 'Hard', 'barcelona': 'Clay', 'queens': 'Grass', 'halle': 'Grass',
+            'hamburg': 'Clay', 'washington': 'Hard', 'tokyo': 'Hard', 'beijing': 'Hard',
+            // ATP 1000
+            'indian wells': 'Hard', 'miami': 'Hard', 'monte carlo': 'Clay',
+            'madrid': 'Clay', 'rome': 'Clay', 'canada': 'Hard', 'montreal': 'Hard',
+            'toronto': 'Hard', 'cincinnati': 'Hard', 'shanghai': 'Hard', 'paris': 'Indoor Hard',
+            // Grand Slam
+            'australian open': 'Hard', 'roland garros': 'Clay', 'wimbledon': 'Grass',
+            'us open': 'Hard',
+            // WTA
+            'hobart': 'Hard', 'sydney': 'Hard', 'charleston': 'Clay', 'stuttgart': 'Clay',
+            'birmingham': 'Grass', 'eastbourne': 'Grass', 'san jose': 'Hard',
+            'montreal wta': 'Hard', 'toronto wta': 'Hard', 'new haven': 'Hard',
+            'wuhan': 'Hard', 'zhengzhou': 'Hard', 'osaka': 'Hard', 'seoul': 'Hard',
+            'guangzhou': 'Hard', 'linz': 'Indoor Hard', 'luxembourg': 'Indoor Hard',
+            'zhuhai': 'Hard',
+            // Challengers (par défaut Hard, ajuster si connu)
+            'canberra': 'Hard', 'playford': 'Hard', 'quimper': 'Indoor Hard',
+            'nonthaburi': 'Hard', 'koblenz': 'Indoor Hard'
+        };
+
+        // Detection circuit depuis nom du tournoi
+        function detectCircuit(tournament) {
+            var t = tournament.toLowerCase();
+            if (t.includes('wta') || t.includes('women')) return 'WTA';
+            if (t.includes('challenger')) return 'Challenger';
+            if (t.includes('itf')) return 'ITF';
+            if (t.includes('atp') || t.includes('united cup')) return 'ATP';
+            // Par défaut selon le format du nom
+            if (t.includes('250') || t.includes('500') || t.includes('1000') || t.includes('masters')) return 'ATP';
+            return 'ATP'; // défaut
+        }
+
+        // Detection catégorie depuis nom du tournoi
+        function detectCategory(tournament) {
+            var t = tournament.toLowerCase();
+            if (t.includes('grand slam') || t.includes('australian open') || t.includes('roland garros') ||
+                t.includes('wimbledon') || t.includes('us open')) return 'Grand Slam';
+            if (t.includes('1000') || t.includes('masters')) return '1000';
+            if (t.includes('500')) return '500';
+            if (t.includes('250')) return '250';
+            if (t.includes('challenger')) return 'Challenger';
+            if (t.includes('itf')) return 'ITF';
+            if (t.includes('united cup')) return 'United Cup';
+            return '250'; // défaut
+        }
+
+        // Detection surface depuis nom du tournoi
+        function detectSurface(tournament) {
+            var t = tournament.toLowerCase();
+            // Chercher correspondance directe
+            for (var key in TOURNAMENT_SURFACES) {
+                if (t.includes(key)) return TOURNAMENT_SURFACES[key];
+            }
+            // Sinon regarder les indices dans le nom
+            if (t.includes('clay') || t.includes('terre')) return 'Clay';
+            if (t.includes('grass') || t.includes('gazon')) return 'Grass';
+            if (t.includes('indoor') || t.includes('covered')) return 'Indoor Hard';
+            return 'Hard'; // défaut
+        }
+
         function initDatahubDate() {
             var dateInput = document.getElementById('datahubDate');
             if (dateInput && !dateInput.value) {
@@ -16205,16 +16327,30 @@
                 });
                 var winner = p1Sets > p2Sets ? player1 : player2;
 
+                // Enrichissement des données
+                var circuit = detectCircuit(tournament);
+                var category = detectCategory(tournament);
+                var surface = detectSurface(tournament);
+                var year = parseInt(dateStr.split('-')[0]) || new Date().getFullYear();
+
                 matches.push({
                     date: dateStr,
                     time: time,
+                    year: year,
                     tournament: tournament,
+                    circuit: circuit,
+                    category: category,
+                    surface: surface,
                     player1: player1,
                     player2: player2,
+                    p1: player1,
+                    p2: player2,
                     score: score,
                     winner: winner,
                     odds_player1: odds1,
                     odds_player2: odds2,
+                    o1: odds1,
+                    o2: odds2,
                     winner_odds: winner === player1 ? odds1 : odds2,
                     loser_odds: winner === player1 ? odds2 : odds1,
                     imported_at: new Date().toISOString()
@@ -16352,13 +16488,49 @@
                 var winnerStyle = m.winner === m.player1 ? 'font-weight:700;color:var(--green)' : '';
                 var loserStyle = m.winner === m.player2 ? 'font-weight:700;color:var(--green)' : '';
 
+                // Couleur circuit
+                var circuitColor = m.circuit === 'ATP' ? 'var(--atp)' :
+                                   m.circuit === 'WTA' ? 'var(--wta)' :
+                                   m.circuit === 'Challenger' ? 'var(--orange)' : 'var(--muted)';
+                var circuitBadge = '<span style="background:' + circuitColor + ';color:#000;padding:.1rem .3rem;border-radius:3px;font-size:.65rem;font-weight:600">' + (m.circuit || 'ATP') + '</span>';
+
+                // Couleur surface
+                var surfaceColors = { 'Hard': '#4d9fff', 'Clay': '#e57c35', 'Grass': '#22c55e', 'Indoor Hard': '#a855f7' };
+                var surfaceColor = surfaceColors[m.surface] || 'var(--muted)';
+                var surfaceBadge = '<span style="color:' + surfaceColor + ';font-size:.7rem">' + (m.surface || '-') + '</span>';
+
                 return '<tr>' +
-                    '<td style="font-size:.75rem;white-space:nowrap">' + m.date.slice(5) + ' ' + m.time + '</td>' +
-                    '<td style="font-size:.75rem">' + m.tournament + '</td>' +
-                    '<td style="font-size:.75rem"><span style="' + winnerStyle + '">' + m.player1 + '</span> vs <span style="' + loserStyle + '">' + m.player2 + '</span></td>' +
-                    '<td style="font-size:.75rem;font-family:monospace">' + m.score + '</td>' +
-                    '<td style="font-size:.75rem;font-family:monospace">' + odds1 + ' / ' + odds2 + '</td>' +
+                    '<td style="font-size:.7rem;white-space:nowrap">' + m.date.slice(5) + '</td>' +
+                    '<td>' + circuitBadge + '</td>' +
+                    '<td style="font-size:.7rem">' + m.tournament.replace(/^(ATP|WTA|Challenger.*?)\s*[-,]?\s*/i, '') + '</td>' +
+                    '<td>' + surfaceBadge + '</td>' +
+                    '<td style="font-size:.7rem"><span style="' + winnerStyle + '">' + m.player1 + '</span> vs <span style="' + loserStyle + '">' + m.player2 + '</span></td>' +
+                    '<td style="font-size:.7rem;font-family:monospace">' + m.score + '</td>' +
+                    '<td style="font-size:.7rem;font-family:monospace">' + odds1 + '/' + odds2 + '</td>' +
                 '</tr>';
+            }).join('');
+
+            // Afficher stats par circuit
+            renderCircuitStats();
+        }
+
+        function renderCircuitStats() {
+            var container = document.getElementById('dhCircuitStats');
+            if (!container) return;
+
+            var circuits = {};
+            datahubData.forEach(function(m) {
+                var c = m.circuit || 'ATP';
+                if (!circuits[c]) circuits[c] = 0;
+                circuits[c]++;
+            });
+
+            var circuitColors = { 'ATP': 'var(--atp)', 'WTA': 'var(--wta)', 'Challenger': 'var(--orange)', 'ITF': 'var(--muted)' };
+
+            container.innerHTML = Object.keys(circuits).map(function(c) {
+                var color = circuitColors[c] || 'var(--muted)';
+                return '<div style="background:' + color + ';color:#000;padding:.3rem .6rem;border-radius:4px;font-size:.75rem;font-weight:600">' +
+                    c + ': ' + circuits[c] + '</div>';
             }).join('');
         }
 
