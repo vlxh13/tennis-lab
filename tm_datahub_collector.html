@@ -741,12 +741,12 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         function detectSurface(tournament) {
             var t = tournament.toLowerCase();
             for (var key in TOURNAMENT_SURFACES) {
-                if (t.includes(key)) return TOURNAMENT_SURFACES[key];
+                if (t.includes(key)) return { surface: TOURNAMENT_SURFACES[key], mapped: true };
             }
-            if (t.includes('clay') || t.includes('terre')) return 'Clay';
-            if (t.includes('grass') || t.includes('gazon')) return 'Grass';
-            if (t.includes('indoor') || t.includes('covered')) return 'Indoor Hard';
-            return 'Hard';
+            if (t.includes('clay') || t.includes('terre')) return { surface: 'Clay', mapped: false };
+            if (t.includes('grass') || t.includes('gazon')) return { surface: 'Grass', mapped: false };
+            if (t.includes('indoor') || t.includes('covered')) return { surface: 'Indoor Hard', mapped: false };
+            return { surface: 'Hard', mapped: false };
         }
 
         function cleanTournamentName(tournament) {
@@ -790,7 +790,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
                 var circuit = detectCircuit(tournament);
                 var category = detectCategory(tournament);
-                var surface = detectSurface(tournament);
+                var surfaceInfo = detectSurface(tournament);
                 var year = parseInt(dateStr.split('-')[0]) || new Date().getFullYear();
 
                 matches.push({
@@ -802,7 +802,8 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                     tournament_clean: cleanTournamentName(tournament),
                     circuit: circuit,
                     category: category,
-                    surface: surface,
+                    surface: surfaceInfo.surface,
+                    surface_mapped: surfaceInfo.mapped,
                     player1: player1,
                     player2: player2,
                     score: score,
@@ -918,10 +919,12 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
         function updateCircuitStats() {
             var circuits = {};
+            var unmapped = 0;
             database.forEach(function(m) {
                 var c = m.circuit || 'ATP';
                 if (!circuits[c]) circuits[c] = 0;
                 circuits[c]++;
+                if (m.surface_mapped === false) unmapped++;
             });
 
             var container = document.getElementById('circuitStats');
@@ -929,6 +932,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             if (circuits['ATP']) html += '<div class="circuit-badge atp">ATP: ' + circuits['ATP'] + '</div>';
             if (circuits['WTA']) html += '<div class="circuit-badge wta">WTA: ' + circuits['WTA'] + '</div>';
             if (circuits['Challenger']) html += '<div class="circuit-badge challenger">Challenger: ' + circuits['Challenger'] + '</div>';
+            if (unmapped > 0) html += '<div class="circuit-badge" style="background:#ef4444;color:#fff">⚠️ Surfaces non mappées: ' + unmapped + '</div>';
             container.innerHTML = html;
         }
 
@@ -1034,7 +1038,9 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
                     '<div class="match-card-score">' + m.score + '</div>' +
                     '<div class="match-card-footer">' +
                         '<span>' + m.date + ' ' + (m.time || '') + '</span>' +
-                        '<span class="match-card-odds">' + m.surface + ' • ' +
+                        '<span class="match-card-odds">' +
+                            (m.surface_mapped === false ? '<span style="color:#ef4444" title="Surface non mappée">⚠️ </span>' : '') +
+                            m.surface + ' • ' +
                             (m.odds1 ? m.odds1.toFixed(2) : '-') + ' / ' +
                             (m.odds2 ? m.odds2.toFixed(2) : '-') +
                         '</span>' +
