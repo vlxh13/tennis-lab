@@ -1,38 +1,40 @@
-name: Generate Daily News
+name: Actus Quotidiennes
 
 on:
   schedule:
-    # Tous les jours à 7h00 Paris (6h00 UTC en hiver, 5h00 UTC en été)
-    - cron: '0 6 * * *'
-  workflow_dispatch: # Permet de lancer manuellement
+    # 6h heure de Paris (5h UTC en hiver)
+    - cron: '0 5 * * *'
+  workflow_dispatch:  # Permet de lancer manuellement depuis GitHub
 
 jobs:
-  generate-news:
+  generate-actus:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: pip install feedparser
 
-      - name: Generate news
+      - name: Generate actus
         run: python actus/fetch_actu.py
+
+      - name: Cleanup old files (keep 7 days)
+        run: |
+          cd actus
+          find . -name "actu_*.json" -mtime +7 -delete 2>/dev/null || true
+          find . -name "actu_*.md" -mtime +7 -delete 2>/dev/null || true
 
       - name: Commit and push
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add actus/actu_*.json actus/actu_*.md
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Actus $(date +%Y-%m-%d)"
-            git push
-          fi
+          git add actus/
+          git diff --staged --quiet || git commit -m "Actus $(date +%Y-%m-%d)"
+          git push
