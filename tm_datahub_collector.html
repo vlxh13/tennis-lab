@@ -554,7 +554,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         <div class="btn-row" style="margin-bottom:1rem">
             <button class="btn btn-primary" onclick="calculateAllRounds()">🔄 Recalculer tous les rounds</button>
             <button class="btn btn-secondary" onclick="clearAllRounds()">🗑️ Effacer les rounds</button>
-            <button class="btn btn-blue" onclick="recalculateSurfaces()">🎾 Recalculer les surfaces</button>
+            <button class="btn btn-blue" onclick="recalculateSurfaces()">🔧 Recalculer tournois + surfaces</button>
         </div>
 
         <div id="roundsResult" style="display:none;margin-bottom:1rem"></div>
@@ -752,7 +752,11 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
         function cleanTournamentName(tournament) {
             return tournament
-                .replace(/^(ATP|WTA|Challenger.*?)\s*[-,]?\s*/i, '')
+                // Remove "Challenger Men - Singles " or "Challenger Women - Singles "
+                .replace(/^Challenger\s+(Men|Women)\s*-\s*Singles\s*/i, '')
+                // Remove "ATP " or "WTA " prefix
+                .replace(/^(ATP|WTA)\s+/i, '')
+                // Remove trailing " - Singles..." if any
                 .replace(/\s*-\s*Singles.*$/i, '')
                 .trim();
         }
@@ -1444,25 +1448,37 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         }
 
         function recalculateSurfaces() {
-            var updated = 0;
+            var surfaceUpdated = 0;
+            var nameUpdated = 0;
             var unmapped = 0;
 
             database.forEach(function(m) {
-                var surfaceInfo = detectSurface(m.tournament);
-                var oldSurface = m.surface;
-                m.surface = surfaceInfo.surface;
-                m.surface_mapped = surfaceInfo.mapped;
+                // Recalculate tournament_clean
+                var newClean = cleanTournamentName(m.tournament);
+                if (m.tournament_clean !== newClean) {
+                    m.tournament_clean = newClean;
+                    nameUpdated++;
+                }
 
-                if (oldSurface !== m.surface) updated++;
+                // Recalculate surface
+                var surfaceInfo = detectSurface(m.tournament);
+                if (m.surface !== surfaceInfo.surface) {
+                    m.surface = surfaceInfo.surface;
+                    surfaceUpdated++;
+                }
+                m.surface_mapped = surfaceInfo.mapped;
                 if (!surfaceInfo.mapped) unmapped++;
             });
 
             saveDatabase();
             updateUI();
 
-            var msg = updated + ' surfaces mises à jour';
-            if (unmapped > 0) msg += ' (' + unmapped + ' non mappées)';
-            showToast(msg, updated > 0 ? 'success' : 'warning');
+            var msg = '';
+            if (nameUpdated > 0) msg += nameUpdated + ' tournois renommés. ';
+            if (surfaceUpdated > 0) msg += surfaceUpdated + ' surfaces MAJ. ';
+            if (unmapped > 0) msg += unmapped + ' non mappées.';
+            if (!msg) msg = 'Tout est déjà à jour';
+            showToast(msg, (nameUpdated > 0 || surfaceUpdated > 0) ? 'success' : 'warning');
         }
 
         function updateTournamentsTable() {
