@@ -632,7 +632,8 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
         // ==================== PARSING ====================
         function parseDatahubText(text, dateStr) {
             var matches = [];
-            var pattern = /(\d{2}h\d{2})\s*\n.*?Result\s*\n([^,]+),\s*([^\/]+)\s*\/\s*([^:]+)\s*:\s*([^.]+)\.\s*Cotes de début de match\s*:\s*(\d+\.?\d*|None)\s*\/\s*(\d+\.?\d*|None)/gm;
+            // Format TM: "16h43\nHorizontal...\nResult\nTournoi, J1 / J2 : 6/4 6/3. Cotes de début de match : 1.85 / 2.10."
+            var pattern = /(\d{1,2}h\d{2})[\s\S]*?Result\s*\n([^,]+),\s*([^\/]+)\s*\/\s*([^:]+)\s*:\s*([^.]+)\.\s*Cotes de début de match\s*:\s*([\d.]+)\s*\/\s*([\d.]+)/gm;
 
             var match;
             while ((match = pattern.exec(text)) !== null) {
