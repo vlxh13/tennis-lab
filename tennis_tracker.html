@@ -2063,12 +2063,46 @@
             event.target.value = '';
         }
 
+
+        function autoExportJSON() {
+            const today = getTodayDate();
+            const lastExport = localStorage.getItem('tennisTracker_lastExport');
+            
+            if (lastExport === today) {
+                console.log('[AutoExport] Already exported today');
+                return;
+            }
+            
+            const data = localStorage.getItem('tennisTracker');
+            if (!data) {
+                console.log('[AutoExport] No data to export');
+                return;
+            }
+            
+            // Trigger download
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tennisTracker_backup_' + today + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Mark as exported
+            localStorage.setItem('tennisTracker_lastExport', today);
+            console.log('[AutoExport] Exported to file');
+            showToast('Backup auto telecharge !');
+        }
+
         // ==================== INIT ====================
         loadState();
         updateConfigPreview();
 
         // Auto backup on load
         autoBackup();
+        autoExportJSON();
 
         // ==================== AUTO-IMPORT TELEGRAM ====================
         // Debounce: attend 300ms apres le dernier input avant de parser
@@ -2099,7 +2133,7 @@
         });
     </script>
     <div style="position:fixed;bottom:5px;right:10px;font-size:10px;color:#555;">
-        v57 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
+        v58 <button onclick="forceUpdate()" style="font-size:10px;padding:2px 6px;margin-left:5px;">MAJ</button>
     </div>
     <script>
     function forceUpdate() {

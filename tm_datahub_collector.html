@@ -617,7 +617,7 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
     <!-- Version -->
     <div class="version">
-        v5 <button onclick="forceUpdate()">MAJ</button>
+        v5.1 <button onclick="forceUpdate()">MAJ</button>
     </div>
 
     <script>
@@ -2021,6 +2021,38 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
             setTimeout(() => toast.remove(), duration);
         }
 
+        function autoExportJSON() {
+            const today = getTodayDate();
+            const lastExport = localStorage.getItem('tmDatahub_lastExport');
+            
+            if (lastExport === today) {
+                console.log('[AutoExport] Already exported today');
+                return;
+            }
+            
+            const data = localStorage.getItem(DATA_KEY);
+            if (!data) {
+                console.log('[AutoExport] No data to export');
+                return;
+            }
+            
+            // Trigger download
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tm_datahub_backup_' + today + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Mark as exported
+            localStorage.setItem('tmDatahub_lastExport', today);
+            console.log('[AutoExport] Exported to file');
+            showToast('Backup auto telecharge !');
+        }
+
         // ==================== INIT ====================
         function init() {
             // Set today's date
@@ -2031,6 +2063,9 @@ WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.38
 
             // Auto backup
             autoBackup();
+
+            // Auto export JSON file
+            autoExportJSON();
 
             // Update UI
             updateUI();
