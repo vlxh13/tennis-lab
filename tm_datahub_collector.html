@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TM DataHub Collector</title>
+    <link rel="manifest" href="manifest_datahub.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TM DataHub">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --card: #12121a;
+            --border: #2a2a3a;
+            --text: #fff;
+            --muted: #888;
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #4d9fff;
+            --yellow: #eab308;
+            --orange: #f97316;
+            --atp: #22c55e;
+            --wta: #ec4899;
+            --challenger: #f97316;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 1rem;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 {
+            font-size: 1.4rem;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .header .subtitle {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        /* Alert box */
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .alert.danger {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--red);
+            color: var(--red);
+        }
+        .alert.warning {
+            background: rgba(234, 179, 8, 0.15);
+            border: 1px solid var(--yellow);
+            color: var(--yellow);
+        }
+        .alert.success {
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+        .alert-title {
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Stats grid */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .stat {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .stat .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .stat .val.green { color: var(--green); }
+        .stat .val.red { color: var(--red); }
+        .stat .val.orange { color: var(--orange); }
+        .stat .lbl {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        /* Circuit stats */
+        .circuit-stats {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .circuit-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .circuit-badge.atp { background: var(--atp); color: #000; }
+        .circuit-badge.wta { background: var(--wta); color: #000; }
+        .circuit-badge.challenger { background: var(--challenger); color: #000; }
+
+        /* Form */
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+            margin-bottom: 0.75rem;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--orange);
+        }
+        textarea::placeholder {
+            color: var(--muted);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .form-group label {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .form-group input {
+            padding: 0.5rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+        }
+        .btn-secondary {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .btn-blue {
+            background: var(--blue);
+            color: #000;
+        }
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Table */
+        .table-wrap {
+            max-height: 400px;
+            overflow: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        th {
+            text-align: left;
+            padding: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--card);
+        }
+        td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            font-weight: 600;
+        }
+        .badge-atp { background: var(--atp); color: #000; }
+        .badge-wta { background: var(--wta); color: #000; }
+        .badge-challenger { background: var(--challenger); color: #000; }
+        .surface-hard { color: #4d9fff; }
+        .surface-clay { color: #e57c35; }
+        .surface-grass { color: #22c55e; }
+        .surface-indoor { color: #a855f7; }
+        .winner { font-weight: 700; color: var(--green); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 0.5rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--muted);
+        }
+        .tab.active {
+            background: var(--orange);
+            color: #000;
+            border-color: var(--orange);
+            font-weight: 600;
+        }
+
+        /* Missing days */
+        .missing-days {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        .missing-day {
+            padding: 0.3rem 0.6rem;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid var(--red);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--red);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+        .toast.success { background: var(--green); color: #000; }
+        .toast.error { background: var(--red); color: #fff; }
+        @keyframes slideIn {
+            from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 400px) {
+            body { font-size: 13px; padding: 0.75rem; }
+            .header h1 { font-size: 1.2rem; }
+            .stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+            .stat { padding: 0.5rem; }
+            .stat .val { font-size: 1rem; }
+            .stat .lbl { font-size: 0.6rem; }
+            textarea { height: 120px; font-size: 0.7rem; }
+            .btn { padding: 0.5rem 0.8rem; font-size: 0.8rem; }
+            table { font-size: 0.65rem; }
+            th, td { padding: 0.35rem; }
+            .tab { padding: 0.4rem 0.7rem; font-size: 0.75rem; }
+        }
+
+        /* Version */
+        .version {
+            position: fixed;
+            bottom: 8px;
+            right: 12px;
+            font-size: 11px;
+            color: #666;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 10px;
+            border-radius: 4px;
+            z-index: 9999;
+        }
+        .version button {
+            font-size: 10px;
+            padding: 2px 8px;
+            margin-left: 6px;
+            cursor: pointer;
+            background: #f59e0b;
+            color: #000;
+            border: none;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📡 TM DataHub Collector</h1>
+        <div class="subtitle">Base de données Tennis Metrics</div>
+    </div>
+
+    <!-- Alert jours manquants -->
+    <div id="alertBox" class="alert danger" style="display:none">
+        <div class="alert-title">⚠️ <span id="alertTitle">Données manquantes</span></div>
+        <div id="alertMessage"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat">
+            <div class="val" id="statTotal">0</div>
+            <div class="lbl">Matchs</div>
+        </div>
+        <div class="stat">
+            <div class="val" id="statDays">0</div>
+            <div class="lbl">Jours</div>
+        </div>
+        <div class="stat">
+            <div class="val" id="statLastUpdate">-</div>
+            <div class="lbl">Dernier import</div>
+        </div>
+        <div class="stat">
+            <div class="val" id="statDaysSince">-</div>
+            <div class="lbl">Jours sans import</div>
+        </div>
+    </div>
+
+    <!-- Circuit breakdown -->
+    <div class="circuit-stats" id="circuitStats"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" onclick="setTab('import')">📥 Import</button>
+        <button class="tab" onclick="setTab('data')">📊 Données</button>
+        <button class="tab" onclick="setTab('missing')">⚠️ Manquants</button>
+        <button class="tab" onclick="setTab('export')">💾 Export</button>
+    </div>
+
+    <!-- Tab: Import -->
+    <div id="tabImport" class="card">
+        <div class="card-title">📋 Coller les données TM</div>
+        <textarea id="inputData" placeholder="Colle ici le texte copié du DataHub Tennis Metrics...
+
+Exemple:
+10h23
+Horizontal fading line
+Result
+WTA Auckland, Svitolina E. / Jovic I. : 7/6 6/2. Cotes de début de match : 1.382 / 3.33."></textarea>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>📅 Date des matchs</label>
+                <input type="date" id="inputDate">
+            </div>
+            <button class="btn btn-primary" onclick="importData()">🚀 Importer</button>
+            <button class="btn btn-secondary" onclick="clearInput()">🗑️ Effacer</button>
+        </div>
+
+        <div id="importResult" style="display:none"></div>
+    </div>
+
+    <!-- Tab: Data -->
+    <div id="tabData" class="card" style="display:none">
+        <div class="card-title">📊 Base de données (<span id="dataCount">0</span> matchs)</div>
+
+        <!-- Filters -->
+        <div class="form-row" style="margin-bottom:1rem">
+            <button class="btn btn-secondary" onclick="filterCircuit('all')" id="filterAll">Tous</button>
+            <button class="btn btn-secondary" onclick="filterCircuit('ATP')" id="filterATP">ATP</button>
+            <button class="btn btn-secondary" onclick="filterCircuit('WTA')" id="filterWTA">WTA</button>
+            <button class="btn btn-secondary" onclick="filterCircuit('Challenger')" id="filterChallenger">Challenger</button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Circuit</th>
+                        <th>Tournoi</th>
+                        <th>Surface</th>
+                        <th>Match</th>
+                        <th>Score</th>
+                        <th>Cotes</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tab: Missing -->
+    <div id="tabMissing" class="card" style="display:none">
+        <div class="card-title">⚠️ Jours manquants (30 derniers jours)</div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem">
+            Ces jours n'ont pas de données dans la base. Clique sur un jour pour le sélectionner comme date d'import.
+        </p>
+        <div class="missing-days" id="missingDaysList"></div>
+    </div>
+
+    <!-- Tab: Export -->
+    <div id="tabExport" class="card" style="display:none">
+        <div class="card-title">💾 Sauvegardes</div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">
+            Les données sont automatiquement sauvegardées en localStorage.
+            Utilise les exports pour créer des backups.
+        </p>
+        <div class="btn-row">
+            <button class="btn btn-blue" onclick="exportJSON()">📥 Export JSON</button>
+            <button class="btn btn-blue" onclick="exportCSV()">📥 Export CSV</button>
+            <button class="btn btn-secondary" onclick="importFromFile()">📤 Import JSON</button>
+        </div>
+        <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileImport(event)">
+
+        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+            <div class="card-title" style="color:var(--red)">🗑️ Zone danger</div>
+            <button class="btn" style="background:var(--red);color:#fff" onclick="clearAllData()">Vider toute la base</button>
+        </div>
+    </div>
+
+    <!-- Version -->
+    <div class="version">
+        v1 <button onclick="forceUpdate()">MAJ</button>
+    </div>
+
+    <script>
+        // ==================== STORAGE ====================
+        var STORAGE_KEY = 'tm_datahub_collector';
+        var database = [];
+        var currentFilter = 'all';
+        var currentTab = 'import';
+
+        function loadDatabase() {
+            try {
+                var stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    database = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error('Erreur chargement:', e);
+                database = [];
+            }
+        }
+
+        function saveDatabase() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(database));
+            } catch (e) {
+                console.error('Erreur sauvegarde:', e);
+            }
+        }
+
+        // ==================== TOURNAMENT MAPPING ====================
+        var TOURNAMENT_SURFACES = {
+            // ATP/WTA Majors
+            'australian open': 'Hard', 'roland garros': 'Clay', 'wimbledon': 'Grass', 'us open': 'Hard',
+            // ATP 1000
+            'indian wells': 'Hard', 'miami': 'Hard', 'monte carlo': 'Clay', 'madrid': 'Clay',
+            'rome': 'Clay', 'canada': 'Hard', 'montreal': 'Hard', 'toronto': 'Hard',
+            'cincinnati': 'Hard', 'shanghai': 'Hard', 'paris': 'Indoor Hard',
+            // ATP 500
+            'rotterdam': 'Indoor Hard', 'rio': 'Clay', 'acapulco': 'Hard', 'dubai': 'Hard',
+            'barcelona': 'Clay', 'queens': 'Grass', 'queen': 'Grass', 'halle': 'Grass',
+            'hamburg': 'Clay', 'washington': 'Hard', 'tokyo': 'Hard', 'beijing': 'Hard', 'basel': 'Indoor Hard', 'vienna': 'Indoor Hard',
+            // ATP 250
+            'brisbane': 'Hard', 'adelaide': 'Hard', 'auckland': 'Hard', 'hong kong': 'Hard',
+            'doha': 'Hard', 'montpellier': 'Indoor Hard', 'dallas': 'Indoor Hard', 'marseille': 'Indoor Hard',
+            'delray beach': 'Hard', 'los cabos': 'Hard', 'atlanta': 'Hard', 'newport': 'Grass',
+            'bastad': 'Clay', 'gstaad': 'Clay', 'kitzbuhel': 'Clay', 'umag': 'Clay',
+            'winston-salem': 'Hard', 'metz': 'Indoor Hard', 'sofia': 'Indoor Hard',
+            'astana': 'Indoor Hard', 'antwerp': 'Indoor Hard', 'stockholm': 'Indoor Hard',
+            // WTA
+            'hobart': 'Hard', 'sydney': 'Hard', 'charleston': 'Clay', 'stuttgart': 'Clay',
+            'birmingham': 'Grass', 'eastbourne': 'Grass', 'san jose': 'Hard',
+            'wuhan': 'Hard', 'zhengzhou': 'Hard', 'osaka': 'Hard', 'seoul': 'Hard',
+            'guangzhou': 'Hard', 'linz': 'Indoor Hard', 'luxembourg': 'Indoor Hard',
+            // United Cup
+            'united cup': 'Hard',
+            // Challengers (défaut Hard, ajuster si connu)
+            'canberra': 'Hard', 'playford': 'Hard', 'quimper': 'Indoor Hard',
+            'nonthaburi': 'Hard', 'koblenz': 'Indoor Hard', 'rennes': 'Indoor Hard',
+            'cherbourg': 'Indoor Hard', 'orleans': 'Indoor Hard', 'cleveland': 'Indoor Hard'
+        };
+
+        function detectCircuit(tournament) {
+            var t = tournament.toLowerCase();
+            if (t.includes('wta') || t.includes('women')) return 'WTA';
+            if (t.includes('challenger')) return 'Challenger';
+            if (t.includes('itf')) return 'ITF';
+            return 'ATP';
+        }
+
+        function detectCategory(tournament) {
+            var t = tournament.toLowerCase();
+            if (t.includes('australian open') || t.includes('roland garros') ||
+                t.includes('wimbledon') || t.includes('us open')) return 'Grand Slam';
+            if (t.includes('1000') || t.includes('masters')) return '1000';
+            if (t.includes('500')) return '500';
+            if (t.includes('250')) return '250';
+            if (t.includes('challenger')) return 'Challenger';
+            if (t.includes('itf')) return 'ITF';
+            if (t.includes('united cup')) return 'United Cup';
+            return '250';
+        }
+
+        function detectSurface(tournament) {
+            var t = tournament.toLowerCase();
+            for (var key in TOURNAMENT_SURFACES) {
+                if (t.includes(key)) return TOURNAMENT_SURFACES[key];
+            }
+            if (t.includes('clay') || t.includes('terre')) return 'Clay';
+            if (t.includes('grass') || t.includes('gazon')) return 'Grass';
+            if (t.includes('indoor') || t.includes('covered')) return 'Indoor Hard';
+            return 'Hard';
+        }
+
+        function cleanTournamentName(tournament) {
+            return tournament
+                .replace(/^(ATP|WTA|Challenger.*?)\s*[-,]?\s*/i, '')
+                .replace(/\s*-\s*Singles.*$/i, '')
+                .trim();
+        }
+
+        // ==================== PARSING ====================
+        function parseDatahubText(text, dateStr) {
+            var matches = [];
+            var pattern = /(\d{2}h\d{2})\s*\n.*?Result\s*\n([^,]+),\s*([^\/]+)\s*\/\s*([^:]+)\s*:\s*([^.]+)\.\s*Cotes de début de match\s*:\s*(\d+\.?\d*|None)\s*\/\s*(\d+\.?\d*|None)/gm;
+
+            var match;
+            while ((match = pattern.exec(text)) !== null) {
+                var time = match[1];
+                var tournament = match[2].trim();
+                var player1 = match[3].trim();
+                var player2 = match[4].trim();
+                var score = match[5].trim();
+                var odds1 = match[6] === 'None' ? null : parseFloat(match[6]);
+                var odds2 = match[7] === 'None' ? null : parseFloat(match[7]);
+
+                // Determiner le gagnant
+                var sets = score.split(/\s+/);
+                var p1Sets = 0, p2Sets = 0;
+                sets.forEach(function(s) {
+                    var parts = s.split('/');
+                    if (parts.length === 2) {
+                        var g1 = parseInt(parts[0]);
+                        var g2 = parseInt(parts[1]);
+                        if (!isNaN(g1) && !isNaN(g2)) {
+                            if (g1 > g2) p1Sets++;
+                            else p2Sets++;
+                        }
+                    }
+                });
+                var winner = p1Sets > p2Sets ? player1 : player2;
+
+                var circuit = detectCircuit(tournament);
+                var category = detectCategory(tournament);
+                var surface = detectSurface(tournament);
+                var year = parseInt(dateStr.split('-')[0]) || new Date().getFullYear();
+
+                matches.push({
+                    id: dateStr + '_' + player1 + '_' + player2,
+                    date: dateStr,
+                    time: time,
+                    year: year,
+                    tournament: tournament,
+                    tournament_clean: cleanTournamentName(tournament),
+                    circuit: circuit,
+                    category: category,
+                    surface: surface,
+                    player1: player1,
+                    player2: player2,
+                    score: score,
+                    sets: sets,
+                    winner: winner,
+                    odds1: odds1,
+                    odds2: odds2,
+                    winner_odds: winner === player1 ? odds1 : odds2,
+                    loser_odds: winner === player1 ? odds2 : odds1,
+                    imported_at: new Date().toISOString()
+                });
+            }
+
+            return matches;
+        }
+
+        // ==================== IMPORT ====================
+        function importData() {
+            var text = document.getElementById('inputData').value;
+            var dateStr = document.getElementById('inputDate').value;
+
+            if (!text.trim()) {
+                showToast('Colle d\'abord les données TM', 'error');
+                return;
+            }
+            if (!dateStr) {
+                showToast('Sélectionne une date', 'error');
+                return;
+            }
+
+            var matches = parseDatahubText(text, dateStr);
+
+            if (matches.length === 0) {
+                showToast('Aucun match trouvé. Vérifie le format.', 'error');
+                return;
+            }
+
+            // Ajouter sans doublons
+            var added = 0;
+            matches.forEach(function(m) {
+                var exists = database.some(function(d) {
+                    return d.date === m.date && d.player1 === m.player1 && d.player2 === m.player2;
+                });
+                if (!exists) {
+                    database.push(m);
+                    added++;
+                }
+            });
+
+            // Trier par date décroissante
+            database.sort(function(a, b) {
+                return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time);
+            });
+
+            saveDatabase();
+            updateUI();
+
+            // Afficher résultat
+            var resultDiv = document.getElementById('importResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'alert success';
+            resultDiv.innerHTML = '<div class="alert-title">✅ Import réussi</div>' +
+                '<div>' + matches.length + ' matchs parsés, <strong>' + added + '</strong> nouveaux ajoutés</div>';
+
+            showToast(added + ' matchs ajoutés', 'success');
+            document.getElementById('inputData').value = '';
+        }
+
+        function clearInput() {
+            document.getElementById('inputData').value = '';
+            document.getElementById('importResult').style.display = 'none';
+        }
+
+        // ==================== UI UPDATE ====================
+        function updateUI() {
+            updateStats();
+            updateCircuitStats();
+            updateAlert();
+            updateDataTable();
+            updateMissingDays();
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = database.length;
+
+            // Jours uniques
+            var days = {};
+            database.forEach(function(m) { days[m.date] = true; });
+            var daysList = Object.keys(days).sort();
+            document.getElementById('statDays').textContent = daysList.length;
+
+            // Dernier import
+            if (database.length > 0) {
+                var lastDate = database.reduce(function(latest, m) {
+                    return m.date > latest ? m.date : latest;
+                }, '');
+                document.getElementById('statLastUpdate').textContent = formatDate(lastDate);
+
+                // Jours depuis dernier import
+                var today = new Date();
+                today.setHours(0, 0, 0, 0);
+                var last = new Date(lastDate);
+                var diff = Math.floor((today - last) / (1000 * 60 * 60 * 24));
+                var daysSinceEl = document.getElementById('statDaysSince');
+                daysSinceEl.textContent = diff;
+                daysSinceEl.className = 'val ' + (diff === 0 ? 'green' : diff <= 1 ? 'orange' : 'red');
+            } else {
+                document.getElementById('statLastUpdate').textContent = '-';
+                document.getElementById('statDaysSince').textContent = '-';
+            }
+        }
+
+        function updateCircuitStats() {
+            var circuits = {};
+            database.forEach(function(m) {
+                var c = m.circuit || 'ATP';
+                if (!circuits[c]) circuits[c] = 0;
+                circuits[c]++;
+            });
+
+            var container = document.getElementById('circuitStats');
+            var html = '';
+            if (circuits['ATP']) html += '<div class="circuit-badge atp">ATP: ' + circuits['ATP'] + '</div>';
+            if (circuits['WTA']) html += '<div class="circuit-badge wta">WTA: ' + circuits['WTA'] + '</div>';
+            if (circuits['Challenger']) html += '<div class="circuit-badge challenger">Challenger: ' + circuits['Challenger'] + '</div>';
+            container.innerHTML = html;
+        }
+
+        function updateAlert() {
+            var alertBox = document.getElementById('alertBox');
+
+            if (database.length === 0) {
+                alertBox.style.display = 'block';
+                alertBox.className = 'alert warning';
+                document.getElementById('alertTitle').textContent = 'Base vide';
+                document.getElementById('alertMessage').textContent = 'Commence par importer des données du DataHub TM.';
+                return;
+            }
+
+            // Calculer jours manquants récents
+            var missing = getMissingDays(7);
+
+            if (missing.length > 0) {
+                alertBox.style.display = 'block';
+                alertBox.className = 'alert danger';
+                document.getElementById('alertTitle').textContent = missing.length + ' jour(s) manquant(s)';
+                document.getElementById('alertMessage').textContent = 'Derniers 7 jours: ' + missing.join(', ');
+            } else {
+                // Vérifier jours depuis dernier import
+                var lastDate = database.reduce(function(latest, m) {
+                    return m.date > latest ? m.date : latest;
+                }, '');
+                var today = new Date();
+                today.setHours(0, 0, 0, 0);
+                var last = new Date(lastDate);
+                var diff = Math.floor((today - last) / (1000 * 60 * 60 * 24));
+
+                if (diff >= 2) {
+                    alertBox.style.display = 'block';
+                    alertBox.className = 'alert warning';
+                    document.getElementById('alertTitle').textContent = diff + ' jours sans import';
+                    document.getElementById('alertMessage').textContent = 'Dernier import: ' + formatDate(lastDate);
+                } else if (diff === 1) {
+                    alertBox.style.display = 'block';
+                    alertBox.className = 'alert warning';
+                    document.getElementById('alertTitle').textContent = 'Import d\'hier manquant ?';
+                    document.getElementById('alertMessage').textContent = 'Vérifie si tu as des matchs d\'hier à ajouter.';
+                } else {
+                    alertBox.style.display = 'block';
+                    alertBox.className = 'alert success';
+                    document.getElementById('alertTitle').textContent = 'Base à jour ✓';
+                    document.getElementById('alertMessage').textContent = database.length + ' matchs sur ' + Object.keys(getDaysMap()).length + ' jours';
+                }
+            }
+        }
+
+        function updateDataTable() {
+            var tbody = document.getElementById('dataTable');
+            var filtered = currentFilter === 'all' ? database : database.filter(function(m) {
+                return m.circuit === currentFilter;
+            });
+
+            document.getElementById('dataCount').textContent = filtered.length;
+
+            // Afficher les 100 premiers
+            var display = filtered.slice(0, 100);
+
+            tbody.innerHTML = display.map(function(m) {
+                var circuitClass = 'badge-' + (m.circuit || 'atp').toLowerCase();
+                var surfaceClass = 'surface-' + (m.surface || 'hard').toLowerCase().replace(' ', '-').replace('indoor-hard', 'indoor');
+                var p1Class = m.winner === m.player1 ? 'winner' : '';
+                var p2Class = m.winner === m.player2 ? 'winner' : '';
+
+                return '<tr>' +
+                    '<td class="mono">' + m.date.slice(5) + '</td>' +
+                    '<td><span class="badge ' + circuitClass + '">' + m.circuit + '</span></td>' +
+                    '<td>' + m.tournament_clean + '</td>' +
+                    '<td class="' + surfaceClass + '">' + m.surface + '</td>' +
+                    '<td><span class="' + p1Class + '">' + m.player1 + '</span> vs <span class="' + p2Class + '">' + m.player2 + '</span></td>' +
+                    '<td class="mono">' + m.score + '</td>' +
+                    '<td class="mono">' + (m.odds1 ? m.odds1.toFixed(2) : '-') + '/' + (m.odds2 ? m.odds2.toFixed(2) : '-') + '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        function updateMissingDays() {
+            var missing = getMissingDays(30);
+            var container = document.getElementById('missingDaysList');
+
+            if (missing.length === 0) {
+                container.innerHTML = '<div style="color:var(--green)">✅ Aucun jour manquant sur les 30 derniers jours</div>';
+                return;
+            }
+
+            container.innerHTML = missing.map(function(d) {
+                return '<div class="missing-day" onclick="selectMissingDay(\'' + d + '\')">' + d + '</div>';
+            }).join('');
+        }
+
+        // ==================== HELPERS ====================
+        function getDaysMap() {
+            var days = {};
+            database.forEach(function(m) { days[m.date] = true; });
+            return days;
+        }
+
+        function getMissingDays(lookback) {
+            var existingDays = getDaysMap();
+            var missing = [];
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (var i = 1; i <= lookback; i++) {
+                var d = new Date(today);
+                d.setDate(d.getDate() - i);
+                var dateStr = d.toISOString().split('T')[0];
+                if (!existingDays[dateStr]) {
+                    missing.push(dateStr);
+                }
+            }
+
+            return missing;
+        }
+
+        function formatDate(dateStr) {
+            var d = new Date(dateStr);
+            return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        }
+
+        function selectMissingDay(dateStr) {
+            document.getElementById('inputDate').value = dateStr;
+            setTab('import');
+            showToast('Date sélectionnée: ' + dateStr, 'success');
+        }
+
+        // ==================== TABS ====================
+        function setTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.card').forEach(function(c) { c.style.display = 'none'; });
+
+            event.target.classList.add('active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+        }
+
+        function filterCircuit(circuit) {
+            currentFilter = circuit;
+            document.querySelectorAll('[id^="filter"]').forEach(function(b) {
+                b.classList.remove('btn-primary');
+                b.classList.add('btn-secondary');
+            });
+            document.getElementById('filter' + (circuit === 'all' ? 'All' : circuit)).classList.remove('btn-secondary');
+            document.getElementById('filter' + (circuit === 'all' ? 'All' : circuit)).classList.add('btn-primary');
+            updateDataTable();
+        }
+
+        // ==================== EXPORT/IMPORT ====================
+        function exportJSON() {
+            if (database.length === 0) {
+                showToast('Base vide', 'error');
+                return;
+            }
+            var blob = new Blob([JSON.stringify(database, null, 2)], { type: 'application/json' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'tm_datahub_' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Export JSON téléchargé', 'success');
+        }
+
+        function exportCSV() {
+            if (database.length === 0) {
+                showToast('Base vide', 'error');
+                return;
+            }
+            var headers = ['date', 'time', 'year', 'circuit', 'category', 'tournament', 'surface', 'player1', 'player2', 'score', 'winner', 'odds1', 'odds2', 'winner_odds'];
+            var csv = headers.join(',') + '\n';
+            database.forEach(function(m) {
+                csv += [
+                    m.date, m.time, m.year, m.circuit, m.category,
+                    '"' + m.tournament.replace(/"/g, '""') + '"',
+                    m.surface,
+                    '"' + m.player1 + '"', '"' + m.player2 + '"',
+                    m.score, '"' + m.winner + '"',
+                    m.odds1 || '', m.odds2 || '', m.winner_odds || ''
+                ].join(',') + '\n';
+            });
+
+            var blob = new Blob([csv], { type: 'text/csv' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'tm_datahub_' + new Date().toISOString().split('T')[0] + '.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Export CSV téléchargé', 'success');
+        }
+
+        function importFromFile() {
+            document.getElementById('fileInput').click();
+        }
+
+        function handleFileImport(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) {
+                        showToast('Format invalide', 'error');
+                        return;
+                    }
+
+                    var added = 0;
+                    imported.forEach(function(m) {
+                        var exists = database.some(function(d) {
+                            return d.date === m.date && d.player1 === m.player1 && d.player2 === m.player2;
+                        });
+                        if (!exists) {
+                            database.push(m);
+                            added++;
+                        }
+                    });
+
+                    database.sort(function(a, b) {
+                        return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time);
+                    });
+
+                    saveDatabase();
+                    updateUI();
+                    showToast(added + ' matchs importés depuis le fichier', 'success');
+                } catch (err) {
+                    showToast('Erreur: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            if (!confirm('Vider toute la base ? Cette action est irréversible.')) return;
+            if (!confirm('Tu es sûr ? Toutes les données seront perdues.')) return;
+            database = [];
+            saveDatabase();
+            updateUI();
+            showToast('Base vidée', 'success');
+        }
+
+        // ==================== TOAST ====================
+        function showToast(message, type) {
+            var existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+
+            var toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(function() { toast.remove(); }, 3000);
+        }
+
+        // ==================== FORCE UPDATE ====================
+        function forceUpdate() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    regs.forEach(function(r) { r.unregister(); });
+                }).then(function() {
+                    return caches.keys();
+                }).then(function(keys) {
+                    keys.forEach(function(k) { caches.delete(k); });
+                }).then(function() {
+                    alert('Cache vidé. Rechargement...');
+                    location.reload(true);
+                });
+            } else {
+                location.reload(true);
+            }
+        }
+
+        // ==================== INIT ====================
+        function init() {
+            // Set today's date
+            document.getElementById('inputDate').value = new Date().toISOString().split('T')[0];
+
+            // Load database
+            loadDatabase();
+
+            // Update UI
+            updateUI();
+        }
+
+        init();
+    </script>
+</body>
+</html>
