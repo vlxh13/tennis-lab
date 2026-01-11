@@ -155,6 +155,92 @@
             select,input[type="date"]{font-size:.75rem!important;padding:.4rem!important}
             .form-group label{font-size:.7rem}
             .form-group input,.form-group select{font-size:.8rem;padding:.5rem}
+
+            /* ===== NICHE CARDS MOBILE VERTICAL LAYOUT ===== */
+            .niche-manager-card{margin-bottom:.5rem}
+            .niche-manager-header{
+                flex-direction:column!important;
+                align-items:stretch!important;
+                gap:.5rem!important;
+                padding:.75rem!important;
+            }
+            /* Ligne du haut: Badge + ROI + Toggle */
+            .niche-manager-header::before{display:none}
+            .niche-manager-header .niche-score{display:none!important}
+            .expand-indicator{display:none!important}
+
+            .niche-manager-info{order:2;width:100%}
+            .niche-manager-name{
+                font-size:1rem!important;
+                white-space:normal!important;
+                line-height:1.3;
+                display:flex;
+                flex-wrap:wrap;
+                gap:.4rem;
+                align-items:center;
+            }
+            .niche-manager-meta{
+                flex-direction:column!important;
+                gap:.25rem!important;
+                margin-top:.4rem!important;
+            }
+            .niche-manager-roi{
+                order:1;
+                display:flex!important;
+                justify-content:space-between!important;
+                align-items:center!important;
+                width:100%!important;
+                min-width:unset!important;
+                padding-bottom:.5rem;
+                border-bottom:1px solid var(--border);
+                margin-bottom:.25rem;
+            }
+            .niche-manager-roi > div:first-child{font-size:1.6rem!important}
+            .niche-manager-actions{
+                order:3;
+                justify-content:flex-end!important;
+                margin-top:.5rem;
+                padding-top:.5rem;
+                border-top:1px solid var(--border);
+            }
+            .toggle-switch{padding:.5rem 1rem!important;font-size:.8rem!important}
+            .delete-btn{padding:.4rem .6rem!important}
+
+            /* Niche details */
+            .niche-manager-details{padding:.5rem!important}
+            .niche-metrics{grid-template-columns:repeat(2,1fr)!important;gap:.4rem!important}
+            .niche-metric{padding:.5rem!important}
+            .niche-metric .val{font-size:.9rem!important}
+            .niche-metric .lbl{font-size:.55rem!important}
+            .niche-years-detailed{gap:3px!important}
+            .niche-year-detail{min-width:40px!important;padding:4px 6px!important}
+            .niche-year-detail .year-label{font-size:.55rem!important}
+            .niche-year-detail .year-roi{font-size:.65rem!important}
+
+            /* Niche detector cards */
+            .niche-card .niche-header{
+                flex-direction:column!important;
+                align-items:stretch!important;
+                gap:.5rem!important;
+            }
+            .niche-card .niche-score{width:100%!important;height:auto!important;padding:.5rem!important;border-radius:8px!important}
+            .niche-card .niche-info{width:100%}
+            .niche-card .niche-name{font-size:.9rem!important}
+            .niche-card .niche-stats{justify-content:space-between!important;width:100%!important;margin-top:.5rem}
+            .niche-card .niche-roi{font-size:1.3rem!important}
+            .niche-action{width:100%!important;justify-content:center!important}
+
+            /* Filter bar */
+            .filter-bar{flex-direction:column!important;gap:.5rem!important;padding:.75rem!important}
+            .filter-group{width:100%;flex-wrap:wrap}
+            .filter-btn{flex:1;text-align:center}
+
+            /* Detector summary */
+            .detector-summary{grid-template-columns:repeat(3,1fr)!important;gap:.4rem!important}
+            .detector-stat{padding:.6rem!important}
+            .detector-stat .num{font-size:1.2rem!important}
+            .detector-stat .lbl{font-size:.6rem!important}
+            .detector-stat .icon{font-size:1.2rem!important;margin-bottom:.25rem!important}
         }
 
         .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem;overflow:hidden}
@@ -4599,24 +4685,26 @@
                 html += '</div>';
                 html += '</div>';
                 
-                // ROI All-time bien visible
-                html += '<div class="niche-manager-roi">';
+                // ROI + Actions (sur même ligne en mobile)
+                html += '<div class="niche-manager-roi" onclick="event.stopPropagation()">';
+                // ROI
                 if (item.roiAll !== null) {
                     var roiColor = item.roiAll >= 0 ? 'var(--green)' : 'var(--red)';
-                    html += '<div style="font-size:1.4rem;font-weight:700;color:' + roiColor + '">' + (item.roiAll >= 0 ? '+' : '') + item.roiAll.toFixed(0) + '%</div>';
-                    html += '<div style="font-size:.65rem;color:var(--muted)">ROI</div>';
+                    html += '<div><div style="font-size:1.4rem;font-weight:700;color:' + roiColor + '">' + (item.roiAll >= 0 ? '+' : '') + item.roiAll.toFixed(0) + '%</div>';
+                    html += '<div style="font-size:.65rem;color:var(--muted)">ROI</div></div>';
                 } else {
                     html += '<div style="color:var(--muted)">-</div>';
                 }
-                html += '</div>';
-                
-                // Actions rapides (toujours visibles)
-                html += '<div class="niche-manager-actions" onclick="event.stopPropagation()">';
+                // Toggle inline
                 if (n.on) {
                     html += '<button onclick="toggleNicheFromManager(\'' + n.id + '\',\'' + item.circuit + '\',false)" class="toggle-switch on">ON</button>';
                 } else {
                     html += '<button onclick="toggleNicheFromManager(\'' + n.id + '\',\'' + item.circuit + '\',true)" class="toggle-switch off">OFF</button>';
                 }
+                html += '</div>';
+
+                // Delete séparé (visible dans actions)
+                html += '<div class="niche-manager-actions" onclick="event.stopPropagation()">';
                 html += '<button onclick="deleteNicheFromManager(\'' + n.id + '\',\'' + item.circuit + '\',false)" class="delete-btn">🗑️</button>';
                 html += '</div>';
                 
@@ -12112,24 +12200,25 @@
                 html += '</div>';
                 html += '</div>';
                 
-                // ROI
-                html += '<div class="niche-manager-roi">';
+                // ROI + Toggle (sur même ligne en mobile)
+                html += '<div class="niche-manager-roi" onclick="event.stopPropagation()">';
                 if (item.roiAll !== null) {
                     var roiColor = item.roiAll >= 0 ? 'var(--green)' : 'var(--red)';
-                    html += '<div style="font-size:1.4rem;font-weight:700;color:' + roiColor + '">' + (item.roiAll >= 0 ? '+' : '') + item.roiAll.toFixed(0) + '%</div>';
-                    html += '<div style="font-size:.65rem;color:var(--muted)">ROI</div>';
+                    html += '<div><div style="font-size:1.4rem;font-weight:700;color:' + roiColor + '">' + (item.roiAll >= 0 ? '+' : '') + item.roiAll.toFixed(0) + '%</div>';
+                    html += '<div style="font-size:.65rem;color:var(--muted)">ROI</div></div>';
                 } else {
                     html += '<div style="color:var(--muted)">-</div>';
                 }
-                html += '</div>';
-                
-                // Actions
-                html += '<div class="niche-manager-actions" onclick="event.stopPropagation()">';
+                // Toggle inline
                 if (n.on) {
                     html += '<button onclick="toggleNicheFromLab(\'' + n.id + '\',\'' + item.circuit + '\',false)" class="toggle-switch on">ON</button>';
                 } else {
                     html += '<button onclick="toggleNicheFromLab(\'' + n.id + '\',\'' + item.circuit + '\',true)" class="toggle-switch off">OFF</button>';
                 }
+                html += '</div>';
+
+                // Delete séparé
+                html += '<div class="niche-manager-actions" onclick="event.stopPropagation()">';
                 html += '<button onclick="deleteNicheFromLab(\'' + n.id + '\',\'' + item.circuit + '\')" class="delete-btn">🗑️</button>';
                 html += '</div>';
                 
